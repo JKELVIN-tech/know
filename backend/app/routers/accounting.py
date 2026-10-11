@@ -109,6 +109,7 @@ def ledger(
     account_id: int,
     start_date: datetime | None = None,
     end_date: datetime | None = None,
+    staff_id: int | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -119,12 +120,17 @@ def ledger(
     if current_user.role == UserRole.INSTITUTION_ADMIN and account.institution_id != current_user.institution_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted to view this account")
     backfill_institution(db, account.institution_id)
+    only_user = resolve_staff_filter(db, current_user, account.institution_id, staff_id)
 
     query = (
         db.query(JournalEntry, JournalLine)
         .join(JournalLine, JournalLine.entry_id == JournalEntry.id)
         .filter(JournalLine.account_id == account.id)
     )
+    if only_user is not None:
+        query = query.outerjoin(Transaction, Transaction.id == JournalEntry.transaction_id).filter(
+            (Transaction.recorded_by_id == only_user) | (JournalEntry.owner_id == only_user)
+        )
     if start_date is not None:
         query = query.filter(JournalEntry.entry_date >= start_date)
     if end_date is not None:
@@ -135,7 +141,7 @@ def ledger(
     lines = []
     for entry, line in rows:
         running += (line.debit - line.credit) if account.type in _DEBIT_NORMAL else (line.credit - line.debit)
-        lines.append(LedgerLine(entry_id=entry.id, entry_date=entry.entry_date, memo=entry.memo, debit=line.debit, credit=line.credit, running_balance=running))
+        lines.append(LedgerLine(entry_id=entry.id, entry_date=entry.entry_date, memo=entry.memo, recorded_by_name=entry.recorded_by_name, reference=entry.reference, debit=line.debit, credit=line.credit, running_balance=running))
     total_debit = sum((l.debit for l in lines), Decimal("0"))
     total_credit = sum((l.credit for l in lines), Decimal("0"))
     summary_row = AccountBalance(id=account.id, code=account.code, key=account.key, name=account.name, type=account.type, debit=total_debit, credit=total_credit, balance=running)
@@ -169,6 +175,7 @@ def journal(
     return [
         JournalEntryOut(
             id=e.id, entry_date=e.entry_date, memo=e.memo, transaction_id=e.transaction_id,
+            recorded_by_name=e.recorded_by_name, reference=e.reference,
             lines=[JournalLineOut(account_id=l.account_id, account_name=l.account.name, debit=l.debit, credit=l.credit) for l in e.lines],
         )
         for e in entries

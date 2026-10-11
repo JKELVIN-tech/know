@@ -47,6 +47,17 @@ class JournalEntry(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     transaction = relationship("Transaction", back_populates="journal_entry")
+    owner = relationship("User", foreign_keys=[owner_id])
+
+    @property
+    def recorded_by_name(self) -> str | None:
+        if self.transaction is not None and self.transaction.recorded_by is not None:
+            return self.transaction.recorded_by.full_name
+        return self.owner.full_name if self.owner is not None else None
+
+    @property
+    def reference(self) -> str | None:
+        return self.transaction.mpesa_code if self.transaction is not None else None
     lines = relationship("JournalLine", back_populates="entry", cascade="all, delete-orphan")
 
 

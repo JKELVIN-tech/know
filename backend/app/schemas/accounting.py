@@ -42,6 +42,8 @@ class LedgerLine(BaseModel):
     entry_id: int
     entry_date: datetime
     memo: str | None
+    recorded_by_name: str | None = None
+    reference: str | None = None
     debit: Decimal
     credit: Decimal
     running_balance: Decimal
@@ -66,6 +68,8 @@ class JournalEntryOut(BaseModel):
     entry_date: datetime
     memo: str | None
     transaction_id: int | None
+    recorded_by_name: str | None = None
+    reference: str | None = None
     lines: list[JournalLineOut]
 
 

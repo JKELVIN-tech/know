@@ -315,3 +315,34 @@ data class ReportOut(
     @SerializedName("resolved_at") val resolvedAt: String? = null,
     val resolution: String? = null,
 )
+
+
+data class JournalLineOut(
+    @SerializedName("account_id") val accountId: Int,
+    @SerializedName("account_name") val accountName: String,
+    val debit: String,
+    val credit: String,
+)
+
+data class JournalEntryOut(
+    val id: Int,
+    @SerializedName("entry_date") val entryDate: String,
+    val memo: String? = null,
+    @SerializedName("transaction_id") val transactionId: Int? = null,
+    @SerializedName("recorded_by_name") val recordedByName: String? = null,
+    val reference: String? = null,
+    val lines: List<JournalLineOut> = emptyList(),
+)
+
+data class LedgerLineOut(
+    @SerializedName("entry_id") val entryId: Int,
+    @SerializedName("entry_date") val entryDate: String,
+    val memo: String? = null,
+    @SerializedName("recorded_by_name") val recordedByName: String? = null,
+    val reference: String? = null,
+    val debit: String,
+    val credit: String,
+    @SerializedName("running_balance") val runningBalance: String,
+)
+
+data class LedgerOut(val account: AccountBalanceOut, val lines: List<LedgerLineOut> = emptyList())

@@ -7,6 +7,8 @@ import com.knowapp.android.data.model.InstitutionOut
 import com.knowapp.android.data.model.AdminOverviewOut
 import com.knowapp.android.data.model.DocumentOut
 import com.knowapp.android.data.model.InstitutionStatsOut
+import com.knowapp.android.data.model.JournalEntryOut
+import com.knowapp.android.data.model.LedgerOut
 import com.knowapp.android.data.model.ReportOut
 import com.knowapp.android.data.model.OpeningBalancesOut
 import com.knowapp.android.data.model.PostCommentOut
@@ -150,10 +152,33 @@ interface ApiService {
     suspend fun setOpeningBalances(@Body body: Map<String, Double>): Response<OpeningBalancesOut>
 
     @GET("/api/accounting/summary")
-    suspend fun getSummary(@Query("staff_id") staffId: Int? = null): Response<SummaryOut>
+    suspend fun getSummary(
+        @Query("staff_id") staffId: Int? = null,
+        @Query("start_date") start: String? = null,
+        @Query("end_date") end: String? = null,
+    ): Response<SummaryOut>
 
     @GET("/api/accounting/trial-balance")
-    suspend fun getTrialBalance(@Query("staff_id") staffId: Int? = null): Response<TrialBalanceOut>
+    suspend fun getTrialBalance(
+        @Query("staff_id") staffId: Int? = null,
+        @Query("start_date") start: String? = null,
+        @Query("end_date") end: String? = null,
+    ): Response<TrialBalanceOut>
+
+    @GET("/api/accounting/journal")
+    suspend fun getJournal(
+        @Query("staff_id") staffId: Int? = null,
+        @Query("start_date") start: String? = null,
+        @Query("end_date") end: String? = null,
+        @Query("limit") limit: Int = 500,
+    ): Response<List<JournalEntryOut>>
+
+    @GET("/api/accounting/ledger/{accountId}")
+    suspend fun getLedger(
+        @Path("accountId") accountId: Int,
+        @Query("staff_id") staffId: Int? = null,
+        @Query("end_date") end: String? = null,
+    ): Response<LedgerOut>
 
     // Scoped server-side to the caller's institution automatically.
     @GET("/api/stock")
