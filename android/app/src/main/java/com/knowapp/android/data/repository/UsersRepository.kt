@@ -46,7 +46,7 @@ class UsersRepository(private val api: ApiService) {
                 ),
             )
             if (response.isSuccessful && response.body() != null) UserActionResult.Success(response.body()!!)
-            else UserActionResult.Failure(errorFor(response.code()))
+            else UserActionResult.Failure(errorDetail(response.errorBody()?.string(), response.code()))
         } catch (e: java.io.IOException) {
             UserActionResult.Failure("Couldn't reach the server. Check your connection and try again.")
         }
@@ -56,7 +56,7 @@ class UsersRepository(private val api: ApiService) {
         try {
             val response = if (active) api.reactivateUser(userId) else api.deactivateUser(userId)
             if (response.isSuccessful && response.body() != null) UserActionResult.Success(response.body()!!)
-            else UserActionResult.Failure(errorFor(response.code()))
+            else UserActionResult.Failure(errorDetail(response.errorBody()?.string(), response.code()))
         } catch (e: java.io.IOException) {
             UserActionResult.Failure("Couldn't reach the server. Check your connection and try again.")
         }

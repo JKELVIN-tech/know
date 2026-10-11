@@ -59,6 +59,20 @@ fun errorDetail(body: String?, code: Int): String {
         try {
             val detail = JsonParser.parseString(body).asJsonObject.get("detail")
             if (detail != null && detail.isJsonPrimitive) return detail.asString
+            if (detail != null && detail.isJsonArray && detail.asJsonArray.size() > 0) {
+                val first = detail.asJsonArray[0].asJsonObject
+                val field = first.get("loc")?.asJsonArray?.lastOrNull()?.asString
+                val label = when (field) {
+                    "password", "new_password" -> "Password"
+                    "username" -> "Username"
+                    "full_name" -> "Name"
+                    "institution_id" -> "Institution"
+                    "role" -> "Role"
+                    else -> field?.replace('_', ' ')?.replaceFirstChar { it.uppercase() }
+                }
+                val message = first.get("msg")?.asString?.removePrefix("Value error, ") ?: "isn't valid"
+                return if (label != null) "$label: $message" else message
+            }
         } catch (e: Exception) {
             // fall through to the generic message
         }

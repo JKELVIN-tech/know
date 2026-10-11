@@ -109,7 +109,7 @@ def create_user(payload: UserCreate, request: Request, db: Session = Depends(get
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Institution admins can't create super admin accounts")
         payload.institution_id = admin.institution_id
 
-    if db.query(User).filter(User.username == payload.username).first():
+    if db.query(User).filter(func.lower(User.username) == payload.username.lower()).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
 
     needs_institution = payload.role in (UserRole.STAFF, UserRole.INSTITUTION_ADMIN)
@@ -170,7 +170,7 @@ def update_user(user_id: int, payload: UserUpdate, request: Request, db: Session
     changes = []
 
     if payload.username is not None and payload.username != user.username:
-        existing = db.query(User).filter(User.username == payload.username, User.id != user_id).first()
+        existing = db.query(User).filter(func.lower(User.username) == payload.username.lower(), User.id != user_id).first()
         if existing:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
         changes.append(f"username '{user.username}' -> '{payload.username}'")

@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import Header, APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.activity_log import log_activity
@@ -62,7 +63,9 @@ def login(
     distributed attack against one specific username regardless of
     how many IPs it comes from.
     """
-    user = db.query(User).filter(User.username == form_data.username).first()
+    # Usernames ignore capital letters and stray spaces, so "Sam" and "sam " both reach the same account
+    submitted_username = form_data.username.strip()
+    user = db.query(User).filter(func.lower(User.username) == submitted_username.lower()).first()
 
     if user and user.locked_until and user.locked_until > datetime.now(timezone.utc):
         minutes_left = max(1, int((user.locked_until - datetime.now(timezone.utc)).total_seconds() // 60) + 1)
@@ -72,7 +75,12 @@ def login(
             detail=f"Too many failed attempts. Try again in about {minutes_left} minute(s).",
         )
 
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    # A phone keyboard often adds a trailing space after a word, so the password is also tried without outer spaces
+    password_ok = bool(user) and (
+        verify_password(form_data.password, user.hashed_password)
+        or (form_data.password != form_data.password.strip() and verify_password(form_data.password.strip(), user.hashed_password))
+    )
+    if not user or not password_ok:
         if user:
             user.failed_login_attempts += 1
             if user.failed_login_attempts >= settings.LOGIN_MAX_ATTEMPTS:

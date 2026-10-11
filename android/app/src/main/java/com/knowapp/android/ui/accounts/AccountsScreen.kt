@@ -339,11 +339,11 @@ private fun ResetPasswordSheet(user: UserOut, onDismiss: () -> Unit, onReset: (S
                 OutlinedButton(onClick = onDismiss, shape = PillShape, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Done") }
             } else {
                 Text("Choose a new temporary password for ${user.fullName}. They'll be signed out of other devices.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("New password") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
+                OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("New password") }, supportingText = { Text("At least 8 characters") }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password), modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
                 TextButton(onClick = { password = generatePassword() }) { Text("Generate a new password") }
                 Button(
-                    onClick = { busy = true; onReset(password) { ok -> busy = false; if (ok) done = true } },
-                    enabled = !busy && password.length >= 8,
+                    onClick = { busy = true; password = password.trim(); onReset(password) { ok -> busy = false; if (ok) done = true } },
+                    enabled = !busy && password.trim().length >= 8,
                     shape = PillShape,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                 ) { Text(if (busy) "Resetting…" else "Reset password", fontWeight = FontWeight.Bold) }

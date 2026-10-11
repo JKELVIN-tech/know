@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.knowapp.android.ui.components.SimpleDropdown
@@ -66,7 +68,7 @@ fun CreateAccountSheet(
 
     val chosenInstitution = fixedInstitutionId ?: institutions.firstOrNull { it.second == institutionName }?.first
     val needsInstitution = role != "super_admin" && fixedInstitutionId == null && institutions.isNotEmpty()
-    val canSubmit = username.trim().length >= 3 && fullName.isNotBlank() && password.length >= 8 && (!needsInstitution || chosenInstitution != null)
+    val canSubmit = username.trim().length >= 3 && fullName.isNotBlank() && password.trim().length >= 8 && (!needsInstitution || chosenInstitution != null)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = MaterialTheme.colorScheme.surface) {
         Column(
@@ -92,7 +94,7 @@ fun CreateAccountSheet(
             } else {
                 Text(title, fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold, fontSize = 22.sp)
                 OutlinedTextField(value = fullName, onValueChange = { fullName = it }, label = { Text("Full name") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
-                OutlinedTextField(value = username, onValueChange = { username = it.lowercase().replace(" ", "") }, label = { Text("Username") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
+                OutlinedTextField(value = username, onValueChange = { username = it.replace(" ", "") }, label = { Text("Username") }, supportingText = { Text("Letters and numbers, no spaces") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
                 if (roleOptions.size > 1) {
                     Text("ROLE", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -113,8 +115,9 @@ fun CreateAccountSheet(
                     value = password,
                     onValueChange = { password = it },
                     label = { Text("Temporary password") },
-                    supportingText = { Text("They can change it after signing in") },
+                    supportingText = { Text("At least 8 characters. They can change it after signing in") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth(),
                     shape = SmallRadius,
                 )
@@ -124,8 +127,8 @@ fun CreateAccountSheet(
                 }
                 Button(
                     onClick = {
-                        onSubmit(username.trim(), fullName.trim(), password, role, if (role == "staff") staffType else null, chosenInstitution) { ok ->
-                            if (ok) created = username.trim() to password
+                        onSubmit(username.trim(), fullName.trim(), password.trim(), role, if (role == "staff") staffType else null, chosenInstitution) { ok ->
+                            if (ok) created = username.trim() to password.trim()
                         }
                     },
                     enabled = !submitting && canSubmit,
