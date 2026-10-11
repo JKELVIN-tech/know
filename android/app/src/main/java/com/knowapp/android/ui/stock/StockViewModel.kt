@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.knowapp.android.data.model.ProductCategoryOut
 import com.knowapp.android.data.model.StockItemOut
+import com.knowapp.android.data.repository.DocumentsRepository
 import com.knowapp.android.data.repository.StockRepository
 import com.knowapp.android.data.repository.StockResult
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,9 +20,10 @@ data class StockUiState(
     val error: String? = null,
     val message: String? = null,
     val saving: Boolean = false,
+    val docCounts: Map<Int, Int> = emptyMap(),
 )
 
-class StockViewModel(private val repository: StockRepository) : ViewModel() {
+class StockViewModel(private val repository: StockRepository, private val documents: DocumentsRepository) : ViewModel() {
     private val _state = MutableStateFlow(StockUiState())
     val state: StateFlow<StockUiState> = _state
 
@@ -36,6 +38,10 @@ class StockViewModel(private val repository: StockRepository) : ViewModel() {
             when (val result = repository.list()) {
                 is StockResult.Success -> _state.value = _state.value.copy(loading = false, items = result.items, categories = categories)
                 is StockResult.Failure -> _state.value = _state.value.copy(loading = false, error = result.message, categories = categories)
+            }
+            // How many documents back each item
+            documents.list(null, null).onSuccess { docs ->
+                _state.value = _state.value.copy(docCounts = docs.mapNotNull { it.stockItemId }.groupingBy { it }.eachCount())
             }
         }
     }

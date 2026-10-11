@@ -204,30 +204,40 @@ fun KnowNavGraph(container: AppContainer) {
             BooksScreen(viewModel = viewModel, onBack = { navController.popBackStack() }, showBack = false, onViewAudits = { navController.navigate(Routes.AUDITS) }, onViewStatements = { navController.navigate(Routes.STATEMENTS) })
         }
         composable(Routes.STOCK) {
-            val viewModel: StockViewModel = viewModel(factory = vmFactory { StockViewModel(container.stockRepository) })
+            val viewModel: StockViewModel = viewModel(factory = vmFactory { StockViewModel(container.stockRepository, container.documentsRepository) })
             StockScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
                 showBack = false,
                 onOpenDocuments = { navController.navigate(Routes.DOCUMENTS) },
                 onNewDocument = { type -> navController.navigate(Routes.documentNew(type)) },
+                onOpenItemDocuments = { itemId -> navController.navigate(Routes.documents(itemId)) },
+                onNewItemDocument = { itemId, type -> navController.navigate(Routes.documentNew(type, itemId)) },
             )
         }
-        composable(Routes.DOCUMENTS) {
+        composable(
+            Routes.DOCUMENTS_PATTERN,
+            arguments = listOf(navArgument("itemId") { type = NavType.IntType; defaultValue = -1 }),
+        ) { entry ->
+            val itemId = entry.arguments?.getInt("itemId")?.takeIf { it >= 0 }
             val viewModel: com.knowapp.android.ui.documents.DocumentsViewModel = viewModel(
-                factory = vmFactory { com.knowapp.android.ui.documents.DocumentsViewModel(container.documentsRepository, container.sessionStore) },
+                factory = vmFactory { com.knowapp.android.ui.documents.DocumentsViewModel(container.documentsRepository, container.stockRepository, container.sessionStore, itemId) },
             )
             com.knowapp.android.ui.documents.DocumentsScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
-                onNew = { navController.navigate(Routes.documentNew("purchase_invoice")) },
+                onNew = { type -> navController.navigate(Routes.documentNew(type, itemId)) },
             )
         }
         composable(
             Routes.DOCUMENT_NEW,
-            arguments = listOf(navArgument("docType") { type = NavType.StringType }),
+            arguments = listOf(
+                navArgument("docType") { type = NavType.StringType },
+                navArgument("itemId") { type = NavType.IntType; defaultValue = -1 },
+            ),
         ) { entry ->
             val docType = entry.arguments?.getString("docType") ?: return@composable
+            val itemId = entry.arguments?.getInt("itemId")?.takeIf { it >= 0 }
             val viewModel: com.knowapp.android.ui.documents.NewDocumentViewModel = viewModel(
                 factory = vmFactory {
                     com.knowapp.android.ui.documents.NewDocumentViewModel(container.documentsRepository, container.photoStore, container.stockRepository, container.transactionRepository)
@@ -236,6 +246,7 @@ fun KnowNavGraph(container: AppContainer) {
             com.knowapp.android.ui.documents.NewDocumentScreen(
                 viewModel = viewModel,
                 docType = docType,
+                preselectedItemId = itemId,
                 onBack = { navController.popBackStack() },
                 onSaved = { navController.popBackStack() },
             )

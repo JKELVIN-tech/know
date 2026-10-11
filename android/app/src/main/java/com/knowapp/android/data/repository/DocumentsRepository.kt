@@ -15,9 +15,9 @@ import java.io.IOException
 class DocumentsRepository(private val api: ApiService, private val photos: PhotoStore) {
     private val offline = "Couldn't reach the server. Check your connection and try again."
 
-    suspend fun list(group: String?, query: String?): Result<List<DocumentOut>> = withContext(Dispatchers.IO) {
+    suspend fun list(group: String?, query: String?, stockItemId: Int? = null): Result<List<DocumentOut>> = withContext(Dispatchers.IO) {
         try {
-            val response = api.listDocuments(group = group, q = query?.takeIf { it.isNotBlank() })
+            val response = api.listDocuments(group = group, q = query?.takeIf { it.isNotBlank() }, stockItemId = stockItemId)
             val body = response.body()
             if (response.isSuccessful && body != null) Result.success(body)
             else Result.failure(Exception(errorDetail(response.errorBody()?.string(), response.code())))

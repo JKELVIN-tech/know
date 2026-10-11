@@ -76,6 +76,8 @@ fun StockScreen(
     showBack: Boolean = true,
     onOpenDocuments: () -> Unit = {},
     onNewDocument: (String) -> Unit = {},
+    onOpenItemDocuments: (Int) -> Unit = {},
+    onNewItemDocument: (Int, String) -> Unit = { _, _ -> },
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val state by viewModel.state.collectAsState()
@@ -164,7 +166,7 @@ fun StockScreen(
                         if (state.items.isEmpty()) Text("Add an item to start recording sales and restocks against it.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                     }
                 }
-                else -> items(shown, key = { it.id }) { item -> StockCard(item) { editing = item; showForm = true } }
+                else -> items(shown, key = { it.id }) { item -> StockCard(item, state.docCounts[item.id] ?: 0) { editing = item; showForm = true } }
             }
         }
     }
@@ -186,12 +188,15 @@ fun StockScreen(
                 viewModel.save(editing, name, category, newCategory, description, price, qty) { ok -> if (ok) showForm = false }
             },
             onDelete = { item -> viewModel.delete(item) { ok -> if (ok) showForm = false } },
+            docCount = editing?.let { state.docCounts[it.id] ?: 0 } ?: 0,
+            onOpenDocuments = { item -> showForm = false; onOpenItemDocuments(item.id) },
+            onAttach = { item, type -> showForm = false; onNewItemDocument(item.id, type) },
         )
     }
 }
 
 @Composable
-private fun StockCard(item: StockItemOut, onClick: () -> Unit) {
+private fun StockCard(item: StockItemOut, docCount: Int, onClick: () -> Unit) {
     val qty = qtyOf(item)
     val low = qty <= LOW_STOCK
     Row(
@@ -208,7 +213,11 @@ private fun StockCard(item: StockItemOut, onClick: () -> Unit) {
         }
         Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
             Text(item.name, fontWeight = FontWeight.SemiBold, maxLines = 1)
-            Text(item.categoryName ?: "Uncategorised", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                (item.categoryName ?: "Uncategorised") + if (docCount > 0) "  ·  $docCount ${if (docCount == 1) "document" else "documents"}" else "",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(item.unitPrice?.let { kes(it) } ?: "No price", fontWeight = FontWeight.Bold)
@@ -229,7 +238,11 @@ private fun StockForm(
     onDismiss: () -> Unit,
     onSave: (String, String, String, String, String, String) -> Unit,
     onDelete: (StockItemOut) -> Unit,
+    docCount: Int,
+    onOpenDocuments: (StockItemOut) -> Unit,
+    onAttach: (StockItemOut, String) -> Unit,
 ) {
+    var attaching by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val categoryNames = state.categories.map { it.name } + NEW_CATEGORY
     var name by remember { mutableStateOf(editing?.name ?: "") }
@@ -272,11 +285,36 @@ private fun StockForm(
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(if (state.saving) "Saving…" else "Save", fontWeight = FontWeight.SemiBold) }
             if (editing != null) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp)).padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("Source documents", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    Text(
+                        if (docCount == 0) "No documents linked to this item yet." else "$docCount ${if (docCount == 1) "document is" else "documents are"} linked to this item.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = { attaching = true }, shape = PillShape, modifier = Modifier.weight(1f)) { Text("Attach one") }
+                        if (docCount > 0) OutlinedButton(onClick = { onOpenDocuments(editing) }, shape = PillShape, modifier = Modifier.weight(1f)) { Text("View all") }
+                    }
+                }
+            }
+            if (editing != null) {
                 OutlinedButton(onClick = { confirmDelete = true }, shape = PillShape, modifier = Modifier.fillMaxWidth()) {
                     Text("Delete item", color = DangerRed, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
+    }
+
+    if (attaching && editing != null) {
+        com.knowapp.android.ui.documents.DocumentMenuSheet(
+            onDismiss = { attaching = false },
+            onOpenAll = { attaching = false; onOpenDocuments(editing) },
+            onPick = { key -> attaching = false; onAttach(editing, key) },
+        )
     }
 
     if (confirmDelete && editing != null) {

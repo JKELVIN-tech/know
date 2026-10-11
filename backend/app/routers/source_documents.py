@@ -49,6 +49,7 @@ def list_documents(
     group: str | None = None,
     q: str | None = None,
     staff_id: int | None = None,
+    stock_item_id: int | None = None,
     limit: int = 200,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -61,6 +62,8 @@ def list_documents(
         query = query.filter(SourceDocument.recorded_by_id == staff_id)
     if doc_type:
         query = query.filter(SourceDocument.doc_type == doc_type)
+    if stock_item_id is not None:
+        query = query.filter(SourceDocument.stock_item_id == stock_item_id)
     if group:
         keys = [t[0] for t in DOCUMENT_TYPES if t[2] == group]
         query = query.filter(SourceDocument.doc_type.in_(keys))

@@ -112,6 +112,7 @@ interface ApiService {
     suspend fun listDocuments(
         @Query("group") group: String? = null,
         @Query("q") q: String? = null,
+        @Query("stock_item_id") stockItemId: Int? = null,
     ): Response<List<DocumentOut>>
 
     @DELETE("/api/documents/{documentId}")

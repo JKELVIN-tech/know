@@ -59,7 +59,7 @@ private const val NONE = "None"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NewDocumentScreen(viewModel: NewDocumentViewModel, docType: String, onBack: () -> Unit, onSaved: () -> Unit) {
+fun NewDocumentScreen(viewModel: NewDocumentViewModel, docType: String, preselectedItemId: Int?, onBack: () -> Unit, onSaved: () -> Unit) {
     val state by viewModel.state.collectAsState()
     val type = DocumentCatalog.byKey(docType)
 
@@ -75,6 +75,13 @@ fun NewDocumentScreen(viewModel: NewDocumentViewModel, docType: String, onBack: 
     var photo by remember { mutableStateOf<Uri?>(null) }
     var warning by remember { mutableStateOf(false) }
     var formError by remember { mutableStateOf<String?>(null) }
+
+    // Opened from a stock item: that item is already chosen
+    androidx.compose.runtime.LaunchedEffect(state.stock) {
+        if (preselectedItemId != null && itemName == NONE) {
+            state.stock.firstOrNull { it.id == preselectedItemId }?.let { itemName = it.name }
+        }
+    }
 
     val entryOptions = state.entries.associateBy { "${it.category} · ${kes(it.amount)} · ${it.transactionDate.take(10)}" }
 
@@ -114,6 +121,19 @@ fun NewDocumentScreen(viewModel: NewDocumentViewModel, docType: String, onBack: 
                 Text(type?.purpose ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(top = 6.dp))
             }
 
+            Text("WHICH STOCK ITEM IS THIS FOR?", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                "Optional, but linking the document to an item keeps your stock records traceable, so you can later see every document behind that item.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            SimpleDropdown("Stock item", listOf(NONE) + state.stock.map { it.name }, itemName, { itemName = it })
+            if (itemName != NONE) {
+                OutlinedTextField(
+                    value = quantity, onValueChange = { quantity = it }, label = { Text("Quantity on the document") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(), shape = SmallRadius,
+                )
+            }
             Text("PHOTO OF THE DOCUMENT", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             PhotoPicker(photo, { photo = it })
 
@@ -124,13 +144,6 @@ fun NewDocumentScreen(viewModel: NewDocumentViewModel, docType: String, onBack: 
             }
             OutlinedTextField(value = party, onValueChange = { party = it }, label = { Text(type?.partyLabel ?: "Name") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
 
-            SimpleDropdown("Stock item (optional)", listOf(NONE) + state.stock.map { it.name }, itemName, { itemName = it })
-            if (itemName != NONE) {
-                OutlinedTextField(
-                    value = quantity, onValueChange = { quantity = it }, label = { Text("Quantity on the document") }, singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(), shape = SmallRadius,
-                )
-            }
             OutlinedTextField(
                 value = amount, onValueChange = { amount = it }, label = { Text("Amount in KES (optional)") }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(), shape = SmallRadius,

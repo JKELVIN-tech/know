@@ -11,7 +11,8 @@ object Routes {
     const val DOCUMENTS = "documents"
     const val OVERVIEW = "overview"
     const val REPORTS = "reports"
-    const val DOCUMENT_NEW = "documents/new/{docType}"
+    const val DOCUMENTS_PATTERN = "documents?itemId={itemId}"
+    const val DOCUMENT_NEW = "documents/new/{docType}?itemId={itemId}"
     const val NEWS = "news"
     const val AUDITS = "audits"
     const val AUDIT_DETAIL = "audit_detail/{auditId}"
@@ -20,7 +21,8 @@ object Routes {
     const val MARKET = "market"
     const val CATEGORY_DETAIL = "category_detail/{categoryId}"
 
-    fun documentNew(docType: String) = "documents/new/$docType"
+    fun documents(itemId: Int? = null) = if (itemId == null) "documents" else "documents?itemId=$itemId"
+    fun documentNew(docType: String, itemId: Int? = null) = if (itemId == null) "documents/new/$docType" else "documents/new/$docType?itemId=$itemId"
     fun auditDetail(auditId: Int) = "audit_detail/$auditId"
     fun categoryDetail(categoryId: Int) = "category_detail/$categoryId"
 }

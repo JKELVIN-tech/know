@@ -64,7 +64,8 @@ import com.knowapp.android.ui.theme.DisplayFontFamily
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DocumentsScreen(viewModel: DocumentsViewModel, onBack: () -> Unit, onNew: () -> Unit) {
+fun DocumentsScreen(viewModel: DocumentsViewModel, onBack: () -> Unit, onNew: (String) -> Unit) {
+    var picking by remember { mutableStateOf(false) }
     val state by viewModel.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     var open by remember { mutableStateOf<DocumentOut?>(null) }
@@ -87,7 +88,7 @@ fun DocumentsScreen(viewModel: DocumentsViewModel, onBack: () -> Unit, onNew: ()
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = onNew,
+                onClick = { picking = true },
                 icon = { Icon(Icons.Filled.Add, contentDescription = null) },
                 text = { Text("New document") },
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -102,6 +103,20 @@ fun DocumentsScreen(viewModel: DocumentsViewModel, onBack: () -> Unit, onNew: ()
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(bottom = 96.dp),
         ) {
+            if (state.itemId != null) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Documents for", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Text(state.itemName ?: "this item", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                        }
+                        TextButton(onClick = viewModel::clearItem) { Text("Show all") }
+                    }
+                }
+            }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
@@ -141,6 +156,14 @@ fun DocumentsScreen(viewModel: DocumentsViewModel, onBack: () -> Unit, onNew: ()
                 else -> items(state.documents, key = { it.id }) { doc -> DocumentCard(doc) { open = doc } }
             }
         }
+    }
+
+    if (picking) {
+        DocumentMenuSheet(
+            onDismiss = { picking = false },
+            onOpenAll = { picking = false },
+            onPick = { key -> picking = false; onNew(key) },
+        )
     }
 
     open?.let { doc ->
