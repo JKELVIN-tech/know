@@ -66,6 +66,8 @@ class Transaction(Base):
 
     # Optional evidence photo (receipt, till slip, etc.)
     image_path = Column(String(500), nullable=True)
+    # Lines of one sale or purchase entered together share this id
+    batch_id = Column(String(36), nullable=True, index=True)
 
     recorded_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

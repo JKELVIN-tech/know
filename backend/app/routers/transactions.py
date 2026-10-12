@@ -14,7 +14,9 @@ from app.models.audit import Audit, AuditStatus
 from app.models.stock_item import StockItem
 from app.models.transaction import Transaction, TransactionType, TransactionMethod, TransactionCategoryType
 from app.models.user import User, UserRole, StaffType
-from app.schemas.transaction import TransactionOut
+from pydantic import ValidationError
+
+from app.schemas.transaction import BatchCreate, TransactionOut
 from app.utils.ledger import post_transaction
 from app.utils.uploads import save_transaction_image, delete_storage_object
 
@@ -58,6 +60,37 @@ def _reverse_stock_delta(item: StockItem, txn_type: TransactionType, quantity: D
         item.quantity += quantity
 
 
+def _check_line(db, current_user, type, category_type, category, amount, stock_item_id, quantity):
+    """Validates one entry and applies its stock change; returns the cleaned category, item and quantity."""
+    if amount <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="amount must be greater than 0")
+
+    if category_type == TransactionCategoryType.STOCK:
+        if current_user.staff_type == StaffType.TEACHER:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teacher accounts don't use stock")
+        if stock_item_id is None or quantity is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="stock_item_id and quantity are required for a stock entry")
+        if quantity <= 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="quantity must be greater than 0")
+        stock_item = db.query(StockItem).filter(StockItem.id == stock_item_id, StockItem.institution_id == current_user.institution_id).first()
+        if not stock_item:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stock item not found")
+        category = (category or stock_item.name).strip()
+        _apply_stock_delta(stock_item, type, quantity)
+        return category, stock_item_id, quantity
+
+    category = (category or "").strip()
+    if not category:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="category is required")
+    return category, None, None
+
+
+def _release_image(db, path):
+    # Lines of one batch can share a photo, so it is only removed once nothing else points at it
+    if path and db.query(Transaction).filter(Transaction.image_path == path).count() == 0:
+        delete_storage_object(path)
+
+
 @router.post("", response_model=TransactionOut, status_code=status.HTTP_201_CREATED)
 @limiter.limit("30/minute")
 def create_transaction(
@@ -90,28 +123,7 @@ def create_transaction(
     if current_user.role != UserRole.STAFF:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only staff record transactions")
 
-    if amount <= 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="amount must be greater than 0")
-
-    stock_item = None
-    if category_type == TransactionCategoryType.STOCK:
-        if current_user.staff_type == StaffType.TEACHER:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teacher accounts don't use stock")
-        if stock_item_id is None or quantity is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="stock_item_id and quantity are required for a stock entry")
-        if quantity <= 0:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="quantity must be greater than 0")
-        stock_item = db.query(StockItem).filter(StockItem.id == stock_item_id, StockItem.institution_id == current_user.institution_id).first()
-        if not stock_item:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stock item not found")
-        category = (category or stock_item.name).strip()
-        _apply_stock_delta(stock_item, type, quantity)
-    else:
-        stock_item_id = None
-        quantity = None
-        category = (category or "").strip()
-        if not category:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="category is required")
+    category, stock_item_id, quantity = _check_line(db, current_user, type, category_type, category, amount, stock_item_id, quantity)
 
     image_path = None
     if image is not None and image.filename:
@@ -168,6 +180,77 @@ def list_transactions(
     if end_date is not None:
         query = query.filter(Transaction.transaction_date <= end_date)
     return query.order_by(Transaction.transaction_date.desc()).all()
+
+
+@router.post("/batch", response_model=list[TransactionOut], status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/minute")
+def create_batch(
+    request: Request,
+    payload: str = Form(...),
+    image: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_institution_scope),
+):
+    """
+    Records several items sold or bought together as one payment: every line becomes its own
+    entry (with its own stock change and ledger posting), all sharing one method, proof and photo.
+    All lines are saved or none are. Sending the same batch_id again returns the saved lines
+    instead of recording them twice, so a retry after a dropped connection is safe.
+    """
+    if current_user.role != UserRole.STAFF:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only staff record transactions")
+    try:
+        batch = BatchCreate.model_validate_json(payload)
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=exc.errors(include_url=False, include_context=False, include_input=False))
+    if not batch.lines:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Add at least one item")
+    if len(batch.lines) > 50:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="A batch can have at most 50 items")
+    if not (8 <= len(batch.batch_id) <= 36):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid batch id")
+
+    existing = db.query(Transaction).filter(Transaction.batch_id == batch.batch_id, Transaction.recorded_by_id == current_user.id).order_by(Transaction.id).all()
+    if existing:
+        return existing
+
+    created = []
+    now = datetime.now(timezone.utc)
+    for line in batch.lines:
+        category, stock_item_id, quantity = _check_line(db, current_user, batch.type, line.category_type, line.category, line.amount, line.stock_item_id, line.quantity)
+        txn = Transaction(
+            institution_id=current_user.institution_id,
+            type=batch.type,
+            method=batch.method,
+            category_type=line.category_type,
+            category=category,
+            description=((line.description or batch.description or "").strip()) or None,
+            amount=line.amount,
+            stock_item_id=stock_item_id,
+            quantity=quantity,
+            mpesa_code=(batch.mpesa_code.strip() if batch.mpesa_code else None) or None,
+            mpesa_payer_name=(batch.mpesa_payer_name.strip() if batch.mpesa_payer_name else None) or None,
+            transaction_date=now,
+            recorded_by_id=current_user.id,
+            batch_id=batch.batch_id,
+        )
+        db.add(txn)
+        db.flush()
+        post_transaction(db, txn)
+        created.append(txn)
+
+    if image is not None and image.filename:
+        image_path = save_transaction_image(image, image.file.read())
+        for txn in created:
+            txn.image_path = image_path
+
+    db.commit()
+    for txn in created:
+        db.refresh(txn)
+    total = sum((t.amount for t in created), Decimal("0"))
+    log_activity(db, action="transaction_batch_created", actor=current_user, target_type="transaction", target_id=created[0].id,
+                 detail=f"{batch.type.value} of {total} across {len(created)} items", request=request)
+    return created
 
 
 @router.get("/reference-check")
@@ -317,7 +400,7 @@ def update_transaction(
     db.commit()
     db.refresh(txn)
     if image is not None and image.filename:
-        delete_storage_object(old_image_path)
+        _release_image(db, old_image_path)
     log_activity(db, action="transaction_updated", actor=current_user, target_type="transaction", target_id=txn.id,
                  detail=f"Updated {txn.type.value} of {txn.amount} ({txn.category})", request=request)
     return txn
@@ -350,6 +433,6 @@ def delete_transaction(
     image_path = txn.image_path
     db.delete(txn)
     db.commit()
-    delete_storage_object(image_path)
+    _release_image(db, image_path)
     log_activity(db, action="transaction_deleted", actor=current_user, target_type="transaction", target_id=transaction_id,
                  detail=detail, request=request)
