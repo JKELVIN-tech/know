@@ -12,6 +12,7 @@ from app.models.source_document import SourceDocument
 from app.models.activity_log import ActivityLog
 from app.models.accounting import Account, AccountType, JournalEntry, JournalLine
 from app.models.message_import import MessageImport
+from app.models.stock_transfer import StockTransfer
 
 __all__ = [
     "Institution",
@@ -38,4 +39,5 @@ __all__ = [
     "JournalEntry",
     "JournalLine",
     "MessageImport",
+    "StockTransfer",
 ]

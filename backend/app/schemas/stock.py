@@ -10,6 +10,7 @@ class StockItemCreate(BaseModel):
     description: str | None = None
     unit_price: Decimal | None = None
     quantity: Decimal = Decimal("0")
+    branch_id: int | None = None
 
     @field_validator("name")
     @classmethod
@@ -35,6 +36,7 @@ class StockItemUpdate(BaseModel):
     category_id: int | None = None
     description: str | None = None
     unit_price: Decimal | None = None
+    branch_id: int | None = None
 
     @field_validator("name")
     @classmethod
@@ -51,6 +53,8 @@ class StockItemOut(BaseModel):
     institution_id: int
     category_id: int | None
     category_name: str | None = None
+    branch_id: int | None = None
+    branch_name: str | None = None
     name: str
     description: str | None
     unit_price: Decimal | None

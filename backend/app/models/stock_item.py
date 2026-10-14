@@ -18,6 +18,8 @@ class StockItem(Base):
     # Nullable at first for existing rows created before the market-analysis
     # taxonomy existed; required going forward at the schema/router level.
     category_id = Column(Integer, ForeignKey("product_categories.id"), nullable=True, index=True)
+    # The branch account that owns this stock; null means legacy shared stock the owner has not assigned yet.
+    branch_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     name = Column(String(150), nullable=False)
     description = Column(Text, nullable=True)
     unit_price = Column(Numeric(12, 2), nullable=True)
@@ -28,6 +30,12 @@ class StockItem(Base):
     transactions = relationship("Transaction", back_populates="stock_item")
     category = relationship("ProductCategory", back_populates="stock_items")
     price_history = relationship("StockPriceHistory", back_populates="stock_item", cascade="all, delete-orphan", order_by="StockPriceHistory.recorded_at")
+
+    branch = relationship("User", foreign_keys=[branch_id])
+
+    @property
+    def branch_name(self) -> str | None:
+        return self.branch.full_name if self.branch else None
 
     @property
     def category_name(self) -> str | None:

@@ -24,6 +24,14 @@ router = APIRouter(prefix="/api/market-analysis", tags=["market-analysis"])
 MIN_INSTITUTIONS = 5
 
 
+def _per_institution(pairs) -> list:
+    """Collapses the rows of an institution's branches to one mean price, so a firm with many branches counts once."""
+    groups = defaultdict(list)
+    for key, price in pairs:
+        groups[key].append(price)
+    return [sum(v) / len(v) for v in groups.values()]
+
+
 def _price_stats(prices: list[Decimal]) -> dict:
     floats = [float(p) for p in prices]
     return {
@@ -64,7 +72,7 @@ def list_category_insights(db: Session = Depends(get_db), _: User = Depends(requ
         institution_ids = {r[0] for r in rows}
         if len(institution_ids) < MIN_INSTITUTIONS:
             continue
-        stats = _price_stats([r[1] for r in rows])
+        stats = _price_stats(_per_institution((r[0], r[1]) for r in rows))
         results.append(CategoryInsightOut(
             category_id=cat.id,
             category_name=cat.name,
@@ -93,7 +101,7 @@ def get_category_detail(category_id: int, db: Session = Depends(get_db), _: User
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Not enough contributing institutions yet for this category to be shown",
         )
-    stats = _price_stats([r[1] for r in rows])
+    stats = _price_stats(_per_institution((r[0], r[1]) for r in rows))
 
     # Regional breakdown — same threshold applied per region
     region_rows = (
@@ -102,11 +110,12 @@ def get_category_detail(category_id: int, db: Session = Depends(get_db), _: User
         .filter(StockItem.category_id == category_id, StockItem.unit_price.isnot(None), Institution.region.isnot(None))
         .all()
     )
-    by_region: dict[str, list] = defaultdict(list)
+    by_region_inst: dict[str, dict] = defaultdict(lambda: defaultdict(list))
     region_institutions: dict[str, set] = defaultdict(set)
     for institution_id, price, region in region_rows:
-        by_region[region].append(price)
+        by_region_inst[region][institution_id].append(price)
         region_institutions[region].add(institution_id)
+    by_region = {region: [sum(v) / len(v) for v in d.values()] for region, d in by_region_inst.items()}
     regional_breakdown = [
         RegionBreakdownEntry(region=region, institution_count=len(region_institutions[region]), **_price_stats(prices))
         for region, prices in by_region.items()
@@ -121,12 +130,13 @@ def get_category_detail(category_id: int, db: Session = Depends(get_db), _: User
         .filter(StockItem.category_id == category_id)
         .all()
     )
-    by_month: dict[str, list] = defaultdict(list)
+    by_month_inst: dict[str, dict] = defaultdict(lambda: defaultdict(list))
     month_institutions: dict[str, set] = defaultdict(set)
     for recorded_at, price, institution_id in history_rows:
         month_key = recorded_at.strftime("%Y-%m") if recorded_at else "unknown"
-        by_month[month_key].append(price)
+        by_month_inst[month_key][institution_id].append(price)
         month_institutions[month_key].add(institution_id)
+    by_month = {month: [sum(v) / len(v) for v in d.values()] for month, d in by_month_inst.items()}
     trend = [
         TrendPointOut(month=month, average_price=round(sum(float(p) for p in prices) / len(prices), 2), institution_count=len(month_institutions[month]))
         for month, prices in by_month.items()

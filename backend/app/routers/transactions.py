@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.activity_log import log_activity
@@ -72,7 +72,7 @@ def _check_line(db, current_user, type, category_type, category, amount, stock_i
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="stock_item_id and quantity are required for a stock entry")
         if quantity <= 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="quantity must be greater than 0")
-        stock_item = db.query(StockItem).filter(StockItem.id == stock_item_id, StockItem.institution_id == current_user.institution_id).first()
+        stock_item = db.query(StockItem).filter(StockItem.id == stock_item_id, StockItem.institution_id == current_user.institution_id, or_(StockItem.branch_id.is_(None), StockItem.branch_id == current_user.id)).first()
         if not stock_item:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stock item not found")
         category = (category or stock_item.name).strip()
