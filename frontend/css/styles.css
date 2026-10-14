@@ -608,3 +608,7 @@ a.stat-card:hover { border-color: var(--brand); transform: translateY(-1px); }
 .muted { color: var(--ink-soft); }
 .clickable-row { cursor: pointer; }
 .clickable-row:hover td { background: var(--surface-2); }
+
+/* imports review */
+.txn-actions { display: flex; gap: 8px; padding: 4px 0 12px; }
+.txn-form { display: grid; gap: 10px; padding: 8px 0 14px; }

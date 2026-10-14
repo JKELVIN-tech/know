@@ -248,6 +248,13 @@ const Api = {
     parse: (message) => apiFetch("/api/mpesa/parse", { method: "POST", body: { message } }),
   },
 
+  imports: {
+    scan: (messages) => apiFetch("/api/imports", { method: "POST", body: { messages } }),
+    list: () => apiFetch("/api/imports"),
+    approve: (id, payload) => apiFetch(`/api/imports/${id}/approve`, { method: "POST", body: payload }),
+    ignore: (id) => apiFetch(`/api/imports/${id}/ignore`, { method: "POST" }),
+  },
+
   transactions: {
     list: (params = {}) => apiFetch(`/api/transactions?${new URLSearchParams(params)}`),
     imageUrl: (txn) => (txn?.image_path ? (/^https?:\/\//.test(txn.image_path) ? txn.image_path : `${API_BASE}/${txn.image_path}`) : null),

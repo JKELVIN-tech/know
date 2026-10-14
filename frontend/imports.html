@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en" data-mode="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>KNOW — Imports</title>
+    <meta name="description" content="Review M-Pesa messages before they reach the books." />
+    <meta name="theme-color" content="#0f766e" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./assets/logo.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body data-page="imports">
+    <div class="app-shell" id="appShell">
+      <aside class="sidebar">
+        <div class="brand">
+          <img class="brand-logo" id="sidebarLogo" src="./assets/logo.svg" alt="KNOW logo" />
+          <div class="brand-text">
+            <strong id="sidebarSchool">KNOW</strong>
+            <span>Staff</span>
+          </div>
+        </div>
+        <nav class="side-nav" aria-label="Main"></nav>
+        <div class="side-foot">
+          <p class="principle">&ldquo;Your institution, your accounts, your call.&rdquo;</p>
+        </div>
+      </aside>
+
+      <main class="main" id="main">
+        <header class="topbar">
+          <div class="topbar-id">
+            <img class="topbar-logo" id="topLogo" src="./assets/logo.svg" alt="KNOW logo" />
+            <div class="topbar-copy">
+              <p class="greeting" id="greeting">Good morning</p>
+              <p class="subtle" id="schoolLine">Institution</p>
+            </div>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-btn" id="modeToggle" aria-label="Toggle light or dark mode" title="Light / dark mode">
+              <span class="ico" data-ico="mode"></span>
+            </button>
+          </div>
+        </header>
+
+        <section class="page is-active" data-page="imports">
+          <div class="card">
+            <div class="card-head"><h2>Paste M-Pesa messages</h2><span class="subtle">Nothing is recorded until you approve it</span></div>
+            <label class="field"><span>Messages</span>
+              <textarea id="impText" rows="5" placeholder="Paste one or more M-Pesa confirmation messages"></textarea>
+            </label>
+            <p class="form-message" id="impMsg" hidden></p>
+            <button type="button" class="primary-btn" id="impScan">Detect</button>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>To review</h2><span class="pill" id="impCount">0</span></div>
+            <ul class="txn-list" id="impList"></ul>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Already handled</h2></div>
+            <ul class="txn-list" id="impDone"></ul>
+          </div>
+        </section>
+      </main>
+
+      <nav class="tabbar" id="tabbar" aria-label="Main"></nav>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+
+    <script src="config.js"></script>
+    <script src="./js/api.js"></script>
+    <script src="./js/ui.js"></script>
+    <script src="./js/imports.js"></script>
+  </body>
+</html>
