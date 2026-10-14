@@ -25,11 +25,24 @@ import com.knowapp.android.ui.navigation.KnowNavGraph
 import com.knowapp.android.ui.theme.KnowTheme
 
 class MainActivity : ComponentActivity() {
+    private lateinit var container: AppContainer
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        handleShare(intent)
+    }
+
+    private fun handleShare(intent: android.content.Intent?) {
+        if (intent?.action != android.content.Intent.ACTION_SEND || intent.type?.startsWith("text/") != true) return
+        intent.getStringExtra(android.content.Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() }?.let { container.pendingShare.value = it.take(5000) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val container = (application as KnowApplication).container
+        container = (application as KnowApplication).container
+        handleShare(intent)
 
         setContent {
             val mode by container.themeStore.mode.collectAsState()

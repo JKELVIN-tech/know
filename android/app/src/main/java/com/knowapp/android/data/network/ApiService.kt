@@ -232,4 +232,16 @@ interface ApiService {
 
     @GET("/api/market-analysis/categories/{categoryId}")
     suspend fun getCategoryDetail(@Path("categoryId") categoryId: Int): Response<CategoryDetailOut>
+
+    @POST("/api/imports")
+    suspend fun scanImports(@Body body: com.knowapp.android.data.model.ImportRequestBody): Response<com.knowapp.android.data.model.ImportResultOut>
+
+    @GET("/api/imports")
+    suspend fun listImports(): Response<List<com.knowapp.android.data.model.MessageImportOut>>
+
+    @POST("/api/imports/{importId}/approve")
+    suspend fun approveImport(@Path("importId") importId: Int, @Body body: com.knowapp.android.data.model.ApproveBody): Response<com.knowapp.android.data.model.MessageImportOut>
+
+    @POST("/api/imports/{importId}/ignore")
+    suspend fun ignoreImport(@Path("importId") importId: Int): Response<com.knowapp.android.data.model.MessageImportOut>
 }

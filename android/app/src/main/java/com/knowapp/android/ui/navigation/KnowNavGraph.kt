@@ -117,6 +117,11 @@ fun KnowNavGraph(container: AppContainer) {
         }
     }
 
+    val shared by container.pendingShare.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(shared, session) {
+        if (shared != null && session?.role == "staff" && currentRoute != Routes.IMPORTS) navController.navigate(Routes.IMPORTS) { launchSingleTop = true }
+    }
+
     fun goTab(route: String) {
         navController.navigate(route) {
             popUpTo(startFor(session?.role)) { saveState = true }
@@ -181,8 +186,15 @@ fun KnowNavGraph(container: AppContainer) {
                 lastMethod = container.themeStore.lastMethod,
                 onMethodChosen = { container.themeStore.rememberMethod(it) },
                 onSeeAll = { goTab(Routes.STATEMENTS) },
+                onOpenImports = { navController.navigate(Routes.IMPORTS) },
                 onToggleTheme = { makeDark -> container.themeStore.set(if (makeDark) ThemeMode.DARK else ThemeMode.LIGHT) },
             )
+        }
+        composable(Routes.IMPORTS) {
+            val viewModel: com.knowapp.android.ui.imports.ImportsViewModel = viewModel(
+                factory = vmFactory { com.knowapp.android.ui.imports.ImportsViewModel(container.importsRepository, container.stockRepository, container.pendingShare) },
+            )
+            com.knowapp.android.ui.imports.ImportsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }
         composable(Routes.SETTINGS) {
             SettingsScreen(

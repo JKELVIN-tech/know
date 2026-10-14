@@ -346,3 +346,31 @@ data class LedgerLineOut(
 )
 
 data class LedgerOut(val account: AccountBalanceOut, val lines: List<LedgerLineOut> = emptyList())
+
+
+data class MessageImportOut(
+    val id: Int,
+    val code: String,
+    val kind: String,
+    val direction: String? = null,
+    val amount: String? = null,
+    val counterparty: String? = null,
+    @SerializedName("bank_hint") val bankHint: String? = null,
+    @SerializedName("message_time") val messageTime: String? = null,
+    val status: String,
+    val reason: String? = null,
+    @SerializedName("transaction_id") val transactionId: Int? = null,
+)
+
+data class ImportRequestBody(val messages: List<String>)
+
+data class ImportResultOut(val items: List<MessageImportOut> = emptyList(), val skipped: Int = 0)
+
+data class ApproveBody(
+    @SerializedName("category_type") val categoryType: String,
+    val category: String? = null,
+    @SerializedName("stock_item_id") val stockItemId: Int? = null,
+    val quantity: String? = null,
+    val description: String? = null,
+    val force: Boolean = false,
+)
