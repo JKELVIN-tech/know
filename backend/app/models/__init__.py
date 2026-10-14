@@ -11,6 +11,7 @@ from app.models.post_comment import PostComment
 from app.models.source_document import SourceDocument
 from app.models.activity_log import ActivityLog
 from app.models.accounting import Account, AccountType, JournalEntry, JournalLine
+from app.models.message_import import MessageImport
 
 __all__ = [
     "Institution",
@@ -36,4 +37,5 @@ __all__ = [
     "AccountType",
     "JournalEntry",
     "JournalLine",
+    "MessageImport",
 ]
