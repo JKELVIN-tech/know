@@ -100,7 +100,7 @@ def require_stock_access(current_user: User = Depends(get_current_user)) -> User
         if current_user.institution_id is None:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is not assigned to an institution")
         if current_user.staff_type == StaffType.TEACHER:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teacher accounts don't use stock")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Personal accounts don't use stock")
         return current_user
     if current_user.role == UserRole.INSTITUTION_ADMIN:
         return current_user

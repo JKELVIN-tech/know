@@ -67,7 +67,7 @@ def _check_line(db, current_user, type, category_type, category, amount, stock_i
 
     if category_type == TransactionCategoryType.STOCK:
         if current_user.staff_type == StaffType.TEACHER:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teacher accounts don't use stock")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Personal accounts don't use stock")
         if stock_item_id is None or quantity is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="stock_item_id and quantity are required for a stock entry")
         if quantity <= 0:
@@ -361,7 +361,7 @@ def update_transaction(
 
     if txn.category_type == TransactionCategoryType.STOCK and (type is not None or quantity is not None):
         if current_user.staff_type == StaffType.TEACHER:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teacher accounts don't use stock")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Personal accounts don't use stock")
         if new_quantity is None or new_quantity <= 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="quantity must be greater than 0")
         item = db.query(StockItem).filter(StockItem.id == txn.stock_item_id).first()

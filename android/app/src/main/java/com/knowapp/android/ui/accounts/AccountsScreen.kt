@@ -267,7 +267,7 @@ private fun AccountSheet(
                 modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(18.dp)).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                DetailRow("Role", (ROLE_LABELS[user.role] ?: user.role) + if (user.role == "staff" && user.staffType == "teacher") " · Teacher" else "")
+                DetailRow("Role", (ROLE_LABELS[user.role] ?: user.role) + if (user.role == "staff" && user.staffType == "teacher") " · Personal" else "")
                 DetailRow("Institution", user.institutionName ?: "Platform team")
                 DetailRow("Status", if (user.isActive) "Active" else "Deactivated")
                 DetailRow("Last active", lastSeen(user.lastActiveAt).removePrefix("Active "))

@@ -5,7 +5,7 @@
     const [o, institutions] = await Promise.all([Api.admin.overview(), Api.admin.institutions()]);
     $("#kpiSchools").textContent = o.institutions;
     $("#kpiActive").textContent = o.accounts_active;
-    $("#kpiAccountsSub").textContent = `active of ${o.accounts_total} (${o.staff} staff, ${o.institution_admins} sub-admins)`;
+    $("#kpiAccountsSub").textContent = `active of ${o.accounts_total} (${o.staff} staff, ${o.institution_admins} owners)`;
     $("#kpiEntries").textContent = o.entries_7d;
     $("#kpiReports").textContent = o.open_reports;
     $("#reportsCard").classList.add(o.open_reports ? "bad" : "good");

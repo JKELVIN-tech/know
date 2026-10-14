@@ -3,8 +3,8 @@
 
   function roleLabel(role) {
     if (role === "super_admin") return "Super admin";
-    if (role === "institution_admin") return "Sub-admin";
-    return session.staff_type === "teacher" ? "Staff (Teacher)" : "Staff";
+    if (role === "institution_admin") return "Owner";
+    return session.staff_type === "teacher" ? "Staff (Personal)" : "Staff";
   }
 
   $("#acctName").textContent = session.full_name;

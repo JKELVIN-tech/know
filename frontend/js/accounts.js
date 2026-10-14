@@ -24,7 +24,7 @@
 
   function roleLabel(role) {
     if (role === "super_admin") return "Super admin";
-    if (role === "institution_admin") return "Sub-admin";
+    if (role === "institution_admin") return "Owner";
     return "Staff";
   }
 
@@ -60,7 +60,7 @@
       <tr>
         <td><strong>${escapeHtml(u.full_name)}</strong></td>
         <td><code>${escapeHtml(u.username)}</code></td>
-        <td><span class="badge badge-${u.role}">${roleLabel(u.role)}${u.role === "staff" && u.staff_type === "teacher" ? " · Teacher" : ""}</span></td>
+        <td><span class="badge badge-${u.role}">${roleLabel(u.role)}${u.role === "staff" && u.staff_type === "teacher" ? " · Personal" : ""}</span></td>
         <td>${u.role !== "super_admin" ? escapeHtml(u.institution_name || "—") : "—"}</td>
         <td><span class="badge badge-${u.is_active ? "active" : "inactive"}">${u.is_active ? "Active" : "Deactivated"}</span></td>
         <td class="muted">${lastSeenLabel(u.last_active_at)}</td>
@@ -111,14 +111,14 @@
         <label class="field"><span>Account type</span>
           <select id="editRole">
             <option value="staff" ${user.role === "staff" ? "selected" : ""}>Staff</option>
-            <option value="institution_admin" ${user.role === "institution_admin" ? "selected" : ""}>Sub-admin</option>
+            <option value="institution_admin" ${user.role === "institution_admin" ? "selected" : ""}>Owner</option>
           </select>
         </label>
         <label class="field" id="editStaffTypeField" ${user.role !== "staff" ? "hidden" : ""}>
           <span>Staff type</span>
           <select id="editStaffType">
             <option value="general" ${user.staff_type === "general" ? "selected" : ""}>General (records transactions, can use stock)</option>
-            <option value="teacher" ${user.staff_type === "teacher" ? "selected" : ""}>Teacher (finances only — no stock)</option>
+            <option value="teacher" ${user.staff_type === "teacher" ? "selected" : ""}>Personal (finances only — no stock)</option>
           </select>
         </label>
         ${isSuperAdmin ? `<label class="field"><span>Institution</span><select id="editSchool">${institutionOptions}</select></label>` : ""}
@@ -176,8 +176,8 @@
       : `<option value="">Add an institution first</option>`;
 
     const roleOptions = isSuperAdmin
-      ? `<option value="staff">Staff</option><option value="institution_admin">Sub-admin</option><option value="super_admin">Super admin</option>`
-      : `<option value="staff">Staff</option><option value="institution_admin">Sub-admin</option>`;
+      ? `<option value="staff">Staff</option><option value="institution_admin">Owner</option><option value="super_admin">Super admin</option>`
+      : `<option value="staff">Staff</option><option value="institution_admin">Owner</option>`;
 
     Sheet.open("Issue credentials", `
       <p class="form-error" id="userMsg"></p>
@@ -190,7 +190,7 @@
           <span>Staff type</span>
           <select id="userStaffType">
             <option value="general">General (records transactions, can use stock)</option>
-            <option value="teacher">Teacher (finances only — no stock)</option>
+            <option value="teacher">Personal (finances only — no stock)</option>
           </select>
         </label>
         <label class="field"><span>Full name</span><input type="text" id="userFullname" required /></label>

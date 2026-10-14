@@ -14,7 +14,7 @@
     $("#teamBody").innerHTML = team.length ? team.map((u) => `
       <tr>
         <td><strong>${escapeHtml(u.full_name)}</strong><br><small class="muted">@${escapeHtml(u.username)}</small></td>
-        <td>${u.staff_type === "teacher" ? "Teacher" : "Staff"}</td>
+        <td>${u.staff_type === "teacher" ? "Personal" : "Staff"}</td>
         <td><span class="badge badge-${u.is_active ? "active" : "inactive"}">${u.is_active ? "Active" : "Deactivated"}</span></td>
         <td class="muted">${lastSeenLabel(u.last_active_at)}</td>
       </tr>`).join("") : `<tr class="empty-row"><td colspan="4">No staff yet. Add some from Accounts.</td></tr>`;

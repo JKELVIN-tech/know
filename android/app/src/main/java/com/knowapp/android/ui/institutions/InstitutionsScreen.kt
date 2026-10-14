@@ -270,7 +270,7 @@ private fun InstitutionSheet(
             }
             Text("PEOPLE", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
             if (members.isEmpty()) {
-                Text("No accounts yet. Add a sub admin first so they can set up their own staff.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                Text("No accounts yet. Add an owner first so they can set up their own staff.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
             } else {
                 Column(
                     modifier = Modifier

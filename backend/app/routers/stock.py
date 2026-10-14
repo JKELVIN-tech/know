@@ -56,7 +56,7 @@ def list_stock_items(institution_id: int | None = None, db: Session = Depends(ge
     institution; super_admin can view any institution's stock (oversight,
     read-only) by passing institution_id explicitly."""
     if current_user.role == UserRole.STAFF and current_user.staff_type == StaffType.TEACHER:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teacher accounts don't use stock")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Personal accounts don't use stock")
     scoped_institution_id = _scoped_institution_id(current_user, institution_id)
     return db.query(StockItem).filter(StockItem.institution_id == scoped_institution_id).order_by(StockItem.name).all()
 
@@ -77,7 +77,7 @@ def get_stock_item(item_id: int, db: Session = Depends(get_db), current_user: Us
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stock item not found")
     if current_user.role == UserRole.STAFF:
         if current_user.staff_type == StaffType.TEACHER:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Teacher accounts don't use stock")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Personal accounts don't use stock")
         if item.institution_id != current_user.institution_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted to view this stock item")
     elif current_user.role == UserRole.INSTITUTION_ADMIN and item.institution_id != current_user.institution_id:

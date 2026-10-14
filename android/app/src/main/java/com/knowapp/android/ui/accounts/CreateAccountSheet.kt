@@ -41,7 +41,7 @@ import com.knowapp.android.ui.theme.IncomeGreen
 import com.knowapp.android.ui.theme.PillShape
 import com.knowapp.android.ui.theme.SmallRadius
 
-val ROLE_LABELS = mapOf("staff" to "Staff", "institution_admin" to "Sub admin", "super_admin" to "Super admin")
+val ROLE_LABELS = mapOf("staff" to "Staff", "institution_admin" to "Owner", "super_admin" to "Super admin")
 
 // Shared by Accounts and Institutions: issues a login and then shows the details to hand over
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,7 +105,7 @@ fun CreateAccountSheet(
                     Text("STAFF TYPE", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = staffType == "general", onClick = { staffType = "general" }, label = { Text("General") })
-                        FilterChip(selected = staffType == "teacher", onClick = { staffType = "teacher" }, label = { Text("Teacher") })
+                        FilterChip(selected = staffType == "teacher", onClick = { staffType = "teacher" }, label = { Text("Personal") })
                     }
                 }
                 if (needsInstitution) {
