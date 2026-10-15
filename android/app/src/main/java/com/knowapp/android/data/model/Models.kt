@@ -39,6 +39,8 @@ data class StockItemOut(
     @SerializedName("institution_id") val institutionId: Int,
     @SerializedName("category_id") val categoryId: Int? = null,
     @SerializedName("category_name") val categoryName: String? = null,
+    @SerializedName("branch_id") val branchId: Int? = null,
+    @SerializedName("branch_name") val branchName: String? = null,
     val name: String,
     val description: String? = null,
     @SerializedName("unit_price") val unitPrice: String? = null,
@@ -373,4 +375,28 @@ data class ApproveBody(
     val quantity: String? = null,
     val description: String? = null,
     val force: Boolean = false,
+)
+
+
+data class BranchOut(val id: Int, val name: String)
+
+data class TransferOut(
+    val id: Int,
+    @SerializedName("item_name") val itemName: String,
+    val quantity: String,
+    @SerializedName("from_branch_id") val fromBranchId: Int,
+    @SerializedName("from_branch_name") val fromBranchName: String,
+    @SerializedName("to_branch_id") val toBranchId: Int,
+    @SerializedName("to_branch_name") val toBranchName: String,
+    val status: String,
+    val note: String? = null,
+    val direction: String,
+)
+
+data class TransferBody(
+    @SerializedName("item_id") val itemId: Int,
+    val quantity: String,
+    @SerializedName("to_branch_id") val toBranchId: Int,
+    @SerializedName("from_branch_id") val fromBranchId: Int? = null,
+    val note: String? = null,
 )

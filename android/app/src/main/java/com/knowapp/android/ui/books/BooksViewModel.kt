@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.knowapp.android.data.model.AccountBalanceOut
 import com.knowapp.android.data.model.LedgerOut
 import com.knowapp.android.data.model.UserOut
+import com.knowapp.android.data.repository.AuditActionResult
+import com.knowapp.android.data.repository.AuditRepository
 import com.knowapp.android.data.repository.BooksData
 import com.knowapp.android.data.repository.BooksRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +20,7 @@ enum class BooksPeriod(val label: String) {
     LAST_MONTH("Last month"),
     LAST_30("Last 30 days"),
     ALL("All time"),
+    CUSTOM("Custom range"),
 }
 
 enum class BooksView(val label: String) { JOURNAL("Journal"), TRIAL("Trial balance"), ACCOUNTS("Accounts") }
@@ -33,11 +36,14 @@ data class BooksUiState(
     val ledgerAccount: AccountBalanceOut? = null,
     val ledger: LedgerOut? = null,
     val ledgerLoading: Boolean = false,
+    val customStart: LocalDate? = null,
+    val customEnd: LocalDate? = null,
+    val message: String? = null,
 ) {
     val staffName: String? get() = staff.firstOrNull { it.id == selectedStaffId }?.fullName
 }
 
-class BooksViewModel(private val repository: BooksRepository) : ViewModel() {
+class BooksViewModel(private val repository: BooksRepository, private val audits: AuditRepository) : ViewModel() {
     private val _state = MutableStateFlow(BooksUiState())
     val state: StateFlow<BooksUiState> = _state
 
@@ -61,6 +67,10 @@ class BooksViewModel(private val repository: BooksRepository) : ViewModel() {
             }
             BooksPeriod.LAST_30 -> start(today.minusDays(29)) to end(today)
             BooksPeriod.ALL -> null to null
+            BooksPeriod.CUSTOM -> {
+                val s = _state.value
+                if (s.customStart != null && s.customEnd != null) start(s.customStart) to end(s.customEnd) else null to null
+            }
         }
     }
 
@@ -81,6 +91,35 @@ class BooksViewModel(private val repository: BooksRepository) : ViewModel() {
     fun selectPeriod(period: BooksPeriod) {
         _state.value = _state.value.copy(period = period)
         viewModelScope.launch { load() }
+    }
+
+    fun messageShown() {
+        _state.value = _state.value.copy(message = null)
+    }
+
+    // A custom range is saved as an audit (title plus period) before the books are generated for it
+    fun saveCustomRange(start: LocalDate, end: LocalDate, title: String, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            if (title.isBlank()) {
+                _state.value = _state.value.copy(message = "Enter a title for this audit.")
+                return@launch onDone(false)
+            }
+            val zone = ZoneId.systemDefault()
+            val startIso = start.atStartOfDay(zone).toInstant().toString()
+            val endIso = end.plusDays(1).atStartOfDay(zone).toInstant().minusSeconds(1).toString()
+            val summary = _state.value.staffName?.let { "Books viewed for $it" }
+            when (val result = audits.create(title.trim(), startIso, endIso, summary)) {
+                is AuditActionResult.Success -> {
+                    _state.value = _state.value.copy(period = BooksPeriod.CUSTOM, customStart = start, customEnd = end, message = "Saved to Audits.")
+                    load()
+                    onDone(true)
+                }
+                is AuditActionResult.Failure -> {
+                    _state.value = _state.value.copy(message = result.message)
+                    onDone(false)
+                }
+            }
+        }
     }
 
     fun selectView(view: BooksView) {

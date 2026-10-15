@@ -244,4 +244,22 @@ interface ApiService {
 
     @POST("/api/imports/{importId}/ignore")
     suspend fun ignoreImport(@Path("importId") importId: Int): Response<com.knowapp.android.data.model.MessageImportOut>
+
+    @GET("/api/exchange/branches")
+    suspend fun exchangeBranches(): Response<List<com.knowapp.android.data.model.BranchOut>>
+
+    @GET("/api/exchange/transfers")
+    suspend fun exchangeTransfers(): Response<List<com.knowapp.android.data.model.TransferOut>>
+
+    @POST("/api/exchange/transfers")
+    suspend fun sendTransfer(@Body body: com.knowapp.android.data.model.TransferBody): Response<com.knowapp.android.data.model.TransferOut>
+
+    @POST("/api/exchange/transfers/{transferId}/receive")
+    suspend fun receiveTransfer(@Path("transferId") transferId: Int): Response<com.knowapp.android.data.model.TransferOut>
+
+    @POST("/api/exchange/transfers/{transferId}/reject")
+    suspend fun rejectTransfer(@Path("transferId") transferId: Int): Response<com.knowapp.android.data.model.TransferOut>
+
+    @POST("/api/exchange/transfers/{transferId}/cancel")
+    suspend fun cancelTransfer(@Path("transferId") transferId: Int): Response<com.knowapp.android.data.model.TransferOut>
 }

@@ -85,6 +85,7 @@ fun StockScreen(
     var query by remember { mutableStateOf("") }
     var editing by remember { mutableStateOf<StockItemOut?>(null) }
     var showForm by remember { mutableStateOf(false) }
+    var showExchange by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.message) {
         state.message?.let {
@@ -93,8 +94,16 @@ fun StockScreen(
         }
     }
 
-    val shown = state.items.filter { query.isBlank() || it.name.contains(query, ignoreCase = true) || (it.categoryName ?: "").contains(query, ignoreCase = true) }
-    val totalValue = state.items.fold(BigDecimal.ZERO) { a, i -> a + (i.unitPrice?.toBigDecimalOrNull() ?: BigDecimal.ZERO).multiply(qtyOf(i)) }
+    val branchId = state.branches.firstOrNull { it.name == state.branchFilter }?.id
+    val inBranch = state.items.filter {
+        when (state.branchFilter) {
+            ALL_BRANCHES -> true
+            NO_BRANCH -> it.branchId == null
+            else -> it.branchId == branchId
+        }
+    }
+    val shown = inBranch.filter { query.isBlank() || it.name.contains(query, ignoreCase = true) || (it.categoryName ?: "").contains(query, ignoreCase = true) }
+    val totalValue = inBranch.fold(BigDecimal.ZERO) { a, i -> a + (i.unitPrice?.toBigDecimalOrNull() ?: BigDecimal.ZERO).multiply(qtyOf(i)) }
 
     Scaffold(
         topBar = {
@@ -135,12 +144,18 @@ fun StockScreen(
                     ) {
                         Column {
                             Text("Items", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("${state.items.size}", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                            Text("${inBranch.size}", fontWeight = FontWeight.Bold, fontSize = 20.sp)
                         }
                         Column(horizontalAlignment = Alignment.End) {
                             Text("Stock value", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(kes(totalValue), fontWeight = FontWeight.Bold, fontSize = 20.sp)
                         }
+                    }
+                    if (viewModel.isOwner) {
+                        SimpleDropdown(label = "Show", options = listOf(ALL_BRANCHES) + state.branches.map { it.name } + NO_BRANCH, selected = state.branchFilter, onSelected = viewModel::setBranchFilter)
+                    }
+                    OutlinedButton(onClick = { viewModel.loadExchange(); showExchange = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (state.pendingCount > 0) "Exchange stock (${state.pendingCount})" else "Exchange stock")
                     }
                     OutlinedTextField(
                         value = query, onValueChange = { query = it }, label = { Text("Search items") }, singleLine = true,
@@ -176,6 +191,17 @@ fun StockScreen(
             onDismiss = { menuOpen = false },
             onOpenAll = { menuOpen = false; onOpenDocuments() },
             onPick = { key -> menuOpen = false; onNewDocument(key) },
+        )
+    }
+
+    if (showExchange) {
+        ExchangeSheet(
+            state = state,
+            isOwner = viewModel.isOwner,
+            meId = viewModel.meId,
+            onDismiss = { showExchange = false },
+            onSend = viewModel::sendTransfer,
+            onAct = viewModel::actOnTransfer,
         )
     }
 
@@ -325,5 +351,93 @@ private fun StockForm(
             confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete(editing) }) { Text("Delete", color = DangerRed) } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
         )
+    }
+}
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExchangeSheet(
+    state: StockUiState,
+    isOwner: Boolean,
+    meId: Int?,
+    onDismiss: () -> Unit,
+    onSend: (Int?, Int, String, Int, String, (Boolean) -> Unit) -> Unit,
+    onAct: (Int, String) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var fromName by remember { mutableStateOf("") }
+    var itemLabel by remember { mutableStateOf("") }
+    var toName by remember { mutableStateOf("") }
+    var quantity by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+
+    val fromId = if (isOwner) state.branches.firstOrNull { it.name == fromName }?.id ?: state.branches.firstOrNull()?.id else meId
+    val mine = state.items.filter { it.branchId == fromId }
+    val labels = mine.associateBy { "${it.name} (${it.quantity} in stock)" }
+    val chosenItem = labels[itemLabel] ?: mine.firstOrNull()
+    val targets = state.branches.filter { it.id != fromId }
+    val chosenTo = targets.firstOrNull { it.name == toName } ?: targets.firstOrNull()
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Exchange stock", style = MaterialTheme.typography.titleLarge, fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold)
+            if (state.branches.isEmpty()) {
+                Text(if (isOwner) "Add branch accounts first." else "There are no other branches to exchange with.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                if (isOwner) {
+                    SimpleDropdown(label = "From branch", options = state.branches.map { it.name }, selected = state.branches.firstOrNull { it.id == fromId }?.name ?: "", onSelected = { fromName = it; itemLabel = "" })
+                }
+                if (labels.isEmpty()) {
+                    Text("This branch has no stock to send.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    SimpleDropdown(label = "Item", options = labels.keys.toList(), selected = labels.entries.firstOrNull { it.value == chosenItem }?.key ?: "", onSelected = { itemLabel = it })
+                }
+                OutlinedTextField(
+                    value = quantity, onValueChange = { quantity = it }, label = { Text("Quantity") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(), shape = SmallRadius,
+                )
+                SimpleDropdown(label = "Send to", options = targets.map { it.name }, selected = chosenTo?.name ?: "", onSelected = { toName = it })
+                OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Note (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
+                Text(
+                    "The quantity leaves the sending branch now and reaches the other branch when they confirm it. It is not a sale or a purchase, so income and expenses don't change.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(
+                    enabled = !state.exchangeBusy && chosenItem != null && chosenTo != null,
+                    onClick = { onSend(if (isOwner) fromId else null, chosenItem!!.id, quantity, chosenTo!!.id, note) { ok -> if (ok) { quantity = ""; note = "" } } },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Send stock") }
+            }
+            Text("Transfers", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            if (state.transfers.isEmpty()) Text("No transfers yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            state.transfers.forEach { t ->
+                val who = when (t.direction) {
+                    "incoming" -> "from ${t.fromBranchName}"
+                    "outgoing" -> "to ${t.toBranchName}"
+                    else -> "${t.fromBranchName} \u2192 ${t.toBranchName}"
+                }
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("${t.itemName} \u00D7 ${t.quantity}", fontWeight = FontWeight.SemiBold)
+                    Text(who + (t.note?.let { " \u00B7 $it" } ?: ""), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (t.status != "pending") {
+                        Text(t.status.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            if (t.direction == "incoming" || isOwner) {
+                                TextButton(enabled = !state.exchangeBusy, onClick = { onAct(t.id, "receive") }) { Text("Receive") }
+                                TextButton(enabled = !state.exchangeBusy, onClick = { onAct(t.id, "reject") }) { Text("Reject") }
+                            }
+                            if (t.direction == "outgoing" || isOwner) {
+                                TextButton(enabled = !state.exchangeBusy, onClick = { onAct(t.id, "cancel") }) { Text("Cancel") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

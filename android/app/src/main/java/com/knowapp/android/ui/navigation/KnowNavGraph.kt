@@ -211,11 +211,11 @@ fun KnowNavGraph(container: AppContainer) {
             StatementsScreen(viewModel = viewModel, onBack = { navController.popBackStack() }, showBack = session?.role == "institution_admin", onViewAudits = { navController.navigate(Routes.AUDITS) })
         }
         composable(Routes.BOOKS) {
-            val viewModel: BooksViewModel = viewModel(factory = vmFactory { BooksViewModel(container.booksRepository) })
+            val viewModel: BooksViewModel = viewModel(factory = vmFactory { BooksViewModel(container.booksRepository, container.auditRepository) })
             BooksScreen(viewModel = viewModel, onBack = { navController.popBackStack() }, showBack = false, onViewAudits = { navController.navigate(Routes.AUDITS) }, onViewStatements = { navController.navigate(Routes.STATEMENTS) })
         }
         composable(Routes.STOCK) {
-            val viewModel: StockViewModel = viewModel(factory = vmFactory { StockViewModel(container.stockRepository, container.documentsRepository) })
+            val viewModel: StockViewModel = viewModel(factory = vmFactory { StockViewModel(container.stockRepository, container.documentsRepository, container.exchangeRepository, session?.role == "institution_admin", session?.userId) })
             StockScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },

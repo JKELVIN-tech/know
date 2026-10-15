@@ -24,7 +24,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +50,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -91,8 +99,57 @@ fun BooksScreen(
     val state by viewModel.state.collectAsState()
     val data = state.data
     val collective = state.selectedStaffId == null
+    val snackbar = androidx.compose.runtime.remember { SnackbarHostState() }
+    var showRange by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var showTitle by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var rangeStart by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<java.time.LocalDate?>(null) }
+    var rangeEnd by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<java.time.LocalDate?>(null) }
+    var title by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+
+    androidx.compose.runtime.LaunchedEffect(state.message) {
+        state.message?.let { snackbar.showSnackbar(it); viewModel.messageShown() }
+    }
+
+    if (showRange) {
+        val picker = rememberDateRangePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showRange = false },
+            confirmButton = {
+                TextButton(
+                    enabled = picker.selectedStartDateMillis != null && picker.selectedEndDateMillis != null,
+                    onClick = {
+                        rangeStart = java.time.Instant.ofEpochMilli(picker.selectedStartDateMillis!!).atZone(java.time.ZoneOffset.UTC).toLocalDate()
+                        rangeEnd = java.time.Instant.ofEpochMilli(picker.selectedEndDateMillis!!).atZone(java.time.ZoneOffset.UTC).toLocalDate()
+                        title = "Books ${rangeStart} to ${rangeEnd}"
+                        showRange = false
+                        showTitle = true
+                    },
+                ) { Text("Next") }
+            },
+            dismissButton = { TextButton(onClick = { showRange = false }) { Text("Cancel") } },
+        ) { DateRangePicker(state = picker, modifier = Modifier.height(500.dp)) }
+    }
+
+    if (showTitle && rangeStart != null && rangeEnd != null) {
+        AlertDialog(
+            onDismissRequest = { showTitle = false },
+            title = { Text("Name this audit") },
+            text = {
+                Column {
+                    OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Title") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Text(
+                        "This range is saved in Audits with its title and dates, and the books are generated for it. Nothing is locked until you finalize it there.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = { viewModel.saveCustomRange(rangeStart!!, rangeEnd!!, title) { ok -> if (ok) showTitle = false } }) { Text("Save and generate") } },
+            dismissButton = { TextButton(onClick = { showTitle = false }) { Text("Cancel") } },
+        )
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = { Text("Books", fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold) },
@@ -121,9 +178,12 @@ fun BooksScreen(
                             modifier = Modifier.weight(1.35f),
                         )
                         FilterPill(
-                            value = state.period.label,
+                            value = if (state.period == BooksPeriod.CUSTOM && state.customStart != null) "${state.customStart} \u2013 ${state.customEnd}" else state.period.label,
                             options = BooksPeriod.values().map { it.label },
-                            onSelect = { label -> BooksPeriod.values().firstOrNull { it.label == label }?.let(viewModel::selectPeriod) },
+                            onSelect = { label ->
+                                val picked = BooksPeriod.values().firstOrNull { it.label == label }
+                                if (picked == BooksPeriod.CUSTOM) showRange = true else picked?.let(viewModel::selectPeriod)
+                            },
                             modifier = Modifier.weight(1f),
                         )
                     }

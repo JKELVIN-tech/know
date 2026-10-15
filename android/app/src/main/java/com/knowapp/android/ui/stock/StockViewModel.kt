@@ -2,7 +2,11 @@ package com.knowapp.android.ui.stock
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.knowapp.android.data.model.BranchOut
 import com.knowapp.android.data.model.ProductCategoryOut
+import com.knowapp.android.data.model.TransferBody
+import com.knowapp.android.data.model.TransferOut
+import com.knowapp.android.data.repository.ExchangeRepository
 import com.knowapp.android.data.model.StockItemOut
 import com.knowapp.android.data.repository.DocumentsRepository
 import com.knowapp.android.data.repository.StockRepository
@@ -12,6 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 const val NEW_CATEGORY = "+ New category…"
+const val ALL_BRANCHES = "All branches (collective)"
+const val NO_BRANCH = "Unassigned (shared)"
 
 data class StockUiState(
     val loading: Boolean = true,
@@ -21,14 +27,66 @@ data class StockUiState(
     val message: String? = null,
     val saving: Boolean = false,
     val docCounts: Map<Int, Int> = emptyMap(),
+    val branches: List<BranchOut> = emptyList(),
+    val branchFilter: String = ALL_BRANCHES,
+    val transfers: List<TransferOut> = emptyList(),
+    val pendingCount: Int = 0,
+    val exchangeBusy: Boolean = false,
 )
 
-class StockViewModel(private val repository: StockRepository, private val documents: DocumentsRepository) : ViewModel() {
+class StockViewModel(
+    private val repository: StockRepository,
+    private val documents: DocumentsRepository,
+    private val exchange: ExchangeRepository,
+    val isOwner: Boolean,
+    val meId: Int?,
+) : ViewModel() {
     private val _state = MutableStateFlow(StockUiState())
     val state: StateFlow<StockUiState> = _state
 
     init {
         refresh()
+        loadExchange()
+    }
+
+    fun setBranchFilter(name: String) {
+        _state.value = _state.value.copy(branchFilter = name)
+    }
+
+    fun loadExchange() {
+        viewModelScope.launch {
+            exchange.branches().onSuccess { _state.value = _state.value.copy(branches = it) }
+            exchange.transfers().onSuccess { list ->
+                _state.value = _state.value.copy(transfers = list, pendingCount = list.count { it.status == "pending" && (isOwner || it.direction == "incoming") })
+            }
+        }
+    }
+
+    fun sendTransfer(fromBranchId: Int?, itemId: Int, quantity: String, toBranchId: Int, note: String, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val qty = quantity.trim()
+            if ((qty.toDoubleOrNull() ?: 0.0) <= 0.0) {
+                _state.value = _state.value.copy(message = "Enter a quantity above zero.")
+                return@launch onDone(false)
+            }
+            _state.value = _state.value.copy(exchangeBusy = true)
+            exchange.send(TransferBody(itemId, qty, toBranchId, fromBranchId, note.trim().ifBlank { null }))
+                .onSuccess { _state.value = _state.value.copy(message = "Stock sent. It reaches the other branch when they confirm."); onDone(true) }
+                .onFailure { _state.value = _state.value.copy(message = it.message); onDone(false) }
+            _state.value = _state.value.copy(exchangeBusy = false)
+            refresh()
+            loadExchange()
+        }
+    }
+
+    fun actOnTransfer(id: Int, action: String) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(exchangeBusy = true)
+            exchange.act(id, action).onFailure { _state.value = _state.value.copy(message = it.message) }
+            _state.value = _state.value.copy(exchangeBusy = false)
+            refresh()
+            loadExchange()
+        }
     }
 
     fun refresh() {
@@ -81,7 +139,7 @@ class StockViewModel(private val repository: StockRepository, private val docume
             }
 
             val description = description.trim().ifBlank { null }
-            val result = if (editing == null) repository.create(name.trim(), categoryId, description, priceValue, quantityValue)
+            val result = if (editing == null) repository.create(name.trim(), categoryId, description, priceValue, quantityValue, if (isOwner) _state.value.branches.firstOrNull { it.name == _state.value.branchFilter }?.id else null)
             else repository.update(editing.id, name.trim(), categoryId, description, priceValue)
 
             result.onSuccess {
