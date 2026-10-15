@@ -186,7 +186,6 @@ fun KnowNavGraph(container: AppContainer) {
                 lastMethod = container.themeStore.lastMethod,
                 onMethodChosen = { container.themeStore.rememberMethod(it) },
                 onSeeAll = { goTab(Routes.STATEMENTS) },
-                onOpenImports = { navController.navigate(Routes.IMPORTS) },
                 onToggleTheme = { makeDark -> container.themeStore.set(if (makeDark) ThemeMode.DARK else ThemeMode.LIGHT) },
             )
         }

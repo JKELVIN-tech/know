@@ -5,11 +5,28 @@
     return;
   }
 
+  const isOwner = session.role === "institution_admin";
   let items = [];
   let categories = [];
+  let branches = [];
 
   await loadCategories();
+  if (isOwner) await loadBranches();
   await loadItems();
+  refreshExchangeBadge();
+
+  async function loadBranches() {
+    try { branches = await Api.exchange.branches(); } catch { branches = []; }
+    const el = $("#branchFilter");
+    el.innerHTML = `<option value="">All branches (collective)</option>` + branches.map((b) => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join("") + `<option value="none">Unassigned (shared)</option>`;
+    $("#branchFilterWrap").hidden = false;
+    $("#thBranch").hidden = false;
+    el.addEventListener("change", () => renderItems());
+  }
+
+  function branchOptions(selected) {
+    return branches.map((b) => `<option value="${b.id}" ${String(b.id) === String(selected) ? "selected" : ""}>${escapeHtml(b.name)}</option>`).join("");
+  }
 
   async function loadCategories() {
     try {
@@ -57,11 +74,21 @@
   }
 
   async function loadItems() {
-    const body = $("#stockBody");
     try {
       items = await Api.stock.list();
-      body.innerHTML = items.length ? items.map((s) => `
+      renderItems();
+    } catch (err) {
+      $("#stockBody").innerHTML = `<tr class="empty-row"><td colspan="7">${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  function renderItems() {
+    const body = $("#stockBody");
+    const pick = isOwner ? $("#branchFilter").value : "";
+    const visible = items.filter((s) => (pick === "" ? true : pick === "none" ? s.branch_id == null : String(s.branch_id) === pick));
+    body.innerHTML = visible.length ? visible.map((s) => `
         <tr>
+          <td ${isOwner ? "" : "hidden"}>${escapeHtml(s.branch_name || "Unassigned")}</td>
           <td><strong>${escapeHtml(s.name)}</strong></td>
           <td>${s.category_name ? `<span class="badge">${escapeHtml(s.category_name)}</span>` : "—"}</td>
           <td>${escapeHtml(s.description || "—")}</td>
@@ -74,13 +101,9 @@
             </div>
           </td>
         </tr>
-      `).join("") : `<tr class="empty-row"><td colspan="6">No stock items yet. Add one to start recording sales and restocks against it.</td></tr>`;
-
-      $$("[data-edit]", body).forEach((btn) => btn.addEventListener("click", () => openEditSheet(btn.dataset.edit)));
-      $$("[data-delete]", body).forEach((btn) => btn.addEventListener("click", () => deleteItem(btn.dataset.delete)));
-    } catch (err) {
-      body.innerHTML = `<tr class="empty-row"><td colspan="6">${escapeHtml(err.message)}</td></tr>`;
-    }
+      `).join("") : `<tr class="empty-row"><td colspan="7">No stock items here yet. Add one to start recording sales and restocks against it.</td></tr>`;
+    $$("[data-edit]", body).forEach((btn) => btn.addEventListener("click", () => openEditSheet(btn.dataset.edit)));
+    $$("[data-delete]", body).forEach((btn) => btn.addEventListener("click", () => deleteItem(btn.dataset.delete)));
   }
 
   async function deleteItem(id) {
@@ -103,6 +126,7 @@
     Sheet.open("Add item", `
       <p class="form-error" id="stockMsg"></p>
       <form id="stockForm">
+        ${isOwner ? `<label class="field"><span>Branch</span><select id="stockBranch"><option value="">Unassigned (shared)</option>${branchOptions($("#branchFilter").value)}</select></label>` : ""}
         <label class="field"><span>Name</span><input type="text" id="stockName" required /></label>
         <label class="field"><span>Product category</span>
           <select id="stockCategory" required>${categoryOptions()}</select>
@@ -140,6 +164,7 @@
           description: $("#stockDescription").value.trim() || null,
           unit_price: $("#stockPrice").value ? parseFloat($("#stockPrice").value) : null,
           quantity: parseFloat($("#stockQuantity").value || 0),
+          branch_id: isOwner && $("#stockBranch").value ? parseInt($("#stockBranch").value, 10) : undefined,
         });
         Sheet.close();
         toast("Stock item added.");
@@ -162,6 +187,7 @@
     Sheet.open("Edit item", `
       <p class="form-error" id="editStockMsg"></p>
       <form id="editStockForm">
+        ${isOwner && item.branch_id == null && branches.length ? `<label class="field"><span>Assign to branch</span><select id="editStockBranch"><option value="">Keep shared</option>${branchOptions()}</select></label>` : ""}
         <label class="field"><span>Name</span><input type="text" id="editStockName" value="${escapeHtml(item.name)}" required /></label>
         <label class="field"><span>Product category</span>
           <select id="editStockCategory" required>${categoryOptions(item.category_id)}</select>
@@ -196,6 +222,7 @@
           category_id: categoryId ? parseInt(categoryId, 10) : undefined,
           description: $("#editStockDescription").value.trim() || null,
           unit_price: $("#editStockPrice").value ? parseFloat($("#editStockPrice").value) : null,
+          branch_id: $("#editStockBranch") && $("#editStockBranch").value ? parseInt($("#editStockBranch").value, 10) : undefined,
         });
         Sheet.close();
         toast("Stock item updated.");
@@ -204,6 +231,128 @@
         showFormMessage(msg, err.message || "Could not update the item.");
         submitBtn.disabled = false;
         submitBtn.textContent = "Save changes";
+      }
+    });
+  }
+
+  /* ---------------- Exchange panel ---------------- */
+
+  $("#exchangeBtn").addEventListener("click", openExchange);
+
+  async function refreshExchangeBadge() {
+    try {
+      const pending = (await Api.exchange.list({ status_filter: "pending" })).filter((t) => isOwner || t.direction === "incoming");
+      $("#exchangeBtn").textContent = pending.length ? `Exchange stock (${pending.length})` : "Exchange stock";
+    } catch { /* badge is optional */ }
+  }
+
+  async function openExchange() {
+    let all = [];
+    let meId = null;
+    try {
+      [branches, all] = await Promise.all([Api.exchange.branches(), Api.stock.list()]);
+      if (!isOwner) meId = (await apiFetch("/api/users/me")).id;
+    } catch (err) {
+      toast(err.message || "Could not open the exchange.");
+      return;
+    }
+    if (!branches.length) {
+      toast(isOwner ? "Add branch accounts first." : "There are no other branches to exchange with.");
+      return;
+    }
+    const opt = (b) => `<option value="${b.id}">${escapeHtml(b.name)}</option>`;
+    Sheet.open("Exchange stock", `
+      <p class="form-error" id="exMsg"></p>
+      <form id="exForm">
+        ${isOwner ? `<label class="field"><span>From branch</span><select id="exFrom">${branches.map(opt).join("")}</select></label>` : ""}
+        <label class="field"><span>Item</span><select id="exItem"></select></label>
+        <label class="field"><span>Quantity</span><input type="number" id="exQty" min="0" step="0.01" required /></label>
+        <label class="field"><span>Send to</span><select id="exTo"></select></label>
+        <label class="field"><span>Note (optional)</span><input type="text" id="exNote" maxlength="200" /></label>
+        <p class="file-hint">The quantity leaves the sending branch now and reaches the other branch when they confirm it. It is not a sale or a purchase, so income and expenses don't change.</p>
+        <div class="form-actions"><button type="submit" class="primary-btn" id="exSubmit">Send stock</button></div>
+      </form>
+      <h3>Transfers</h3>
+      <div id="exList"><p class="subtle">Loading…</p></div>
+    `);
+    const fromEl = $("#exFrom");
+    const itemEl = $("#exItem");
+    const toEl = $("#exTo");
+    const fromId = () => (isOwner ? Number(fromEl.value) : meId);
+
+    function fillOptions() {
+      const mine = all.filter((s) => s.branch_id === fromId());
+      itemEl.innerHTML = mine.length ? mine.map((s) => `<option value="${s.id}">${escapeHtml(s.name)} (${s.quantity} in stock)</option>`).join("") : `<option value="">No stock in this branch</option>`;
+      toEl.innerHTML = branches.filter((b) => b.id !== fromId()).map(opt).join("");
+    }
+    if (isOwner) fromEl.addEventListener("change", fillOptions);
+    fillOptions();
+
+    async function loadTransfers() {
+      const box = $("#exList");
+      if (!box) return;
+      try {
+        const rows = await Api.exchange.list();
+        box.innerHTML = rows.length ? rows.map((t) => {
+          const who = t.direction === "incoming" ? `from ${escapeHtml(t.from_branch_name)}` : t.direction === "outgoing" ? `to ${escapeHtml(t.to_branch_name)}` : `${escapeHtml(t.from_branch_name)} → ${escapeHtml(t.to_branch_name)}`;
+          const mayReceive = t.direction === "incoming" || isOwner;
+          const maySend = t.direction === "outgoing" || isOwner;
+          const acts = t.status !== "pending" ? `<span class="badge">${escapeHtml(t.status)}</span>` : [
+            mayReceive && `<button type="button" class="ghost-btn" data-ex="receive" data-id="${t.id}">Receive</button>`,
+            mayReceive && `<button type="button" class="ghost-btn" data-ex="reject" data-id="${t.id}">Reject</button>`,
+            maySend && `<button type="button" class="ghost-btn" data-ex="cancel" data-id="${t.id}">Cancel</button>`,
+          ].filter(Boolean).join(" ");
+          return `<div class="ex-row"><div><strong>${escapeHtml(t.item_name)} × ${t.quantity}</strong><small>${who}${t.note ? " · " + escapeHtml(t.note) : ""}</small></div><div>${acts}</div></div>`;
+        }).join("") : `<p class="subtle">No transfers yet.</p>`;
+      } catch (err) {
+        box.innerHTML = `<p class="subtle">${escapeHtml(err.message || "Could not load transfers.")}</p>`;
+      }
+    }
+    await loadTransfers();
+
+    $("#exList").addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-ex]");
+      if (!btn) return;
+      btn.disabled = true;
+      try {
+        await Api.exchange[btn.dataset.ex](btn.dataset.id);
+        all = await Api.stock.list();
+        fillOptions();
+        await loadItems();
+        await loadTransfers();
+        refreshExchangeBadge();
+      } catch (err) {
+        toast(err.message || "Could not update this transfer.");
+        btn.disabled = false;
+      }
+    });
+
+    $("#exForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = $("#exMsg");
+      hideFormMessage(msg);
+      const submit = $("#exSubmit");
+      submit.disabled = true;
+      try {
+        if (!itemEl.value) throw new Error("This branch has no stock to send.");
+        await Api.exchange.send({
+          item_id: parseInt(itemEl.value, 10),
+          quantity: parseFloat($("#exQty").value),
+          to_branch_id: parseInt(toEl.value, 10),
+          from_branch_id: isOwner ? fromId() : undefined,
+          note: $("#exNote").value.trim() || null,
+        });
+        $("#exQty").value = "";
+        $("#exNote").value = "";
+        all = await Api.stock.list();
+        fillOptions();
+        await loadItems();
+        await loadTransfers();
+        toast("Stock sent. It reaches the other branch when they confirm.");
+      } catch (err) {
+        showFormMessage(msg, err.message || "Could not send the stock.");
+      } finally {
+        submit.disabled = false;
       }
     });
   }

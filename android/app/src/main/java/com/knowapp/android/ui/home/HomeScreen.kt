@@ -148,7 +148,6 @@ fun HomeScreen(
     onToggleHideBalances: () -> Unit = {},
     lastMethod: String = "cash",
     onMethodChosen: (String) -> Unit = {},
-    onOpenImports: () -> Unit = {},
 ) {
     val session by viewModel.session.collectAsState()
     val state by viewModel.state.collectAsState()
@@ -321,10 +320,7 @@ fun HomeScreen(
                 CardShell {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("Recent activity", style = MaterialTheme.typography.titleMedium)
-                        Row {
-                            TextButton(onClick = onOpenImports) { Text("Messages") }
-                            TextButton(onClick = onSeeAll) { Text("See all") }
-                        }
+                        TextButton(onClick = onSeeAll) { Text("See all") }
                     }
                     if (state.pending.isEmpty() && recent.isEmpty()) {
                         Column(modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {

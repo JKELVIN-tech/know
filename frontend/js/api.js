@@ -248,6 +248,15 @@ const Api = {
     parse: (message) => apiFetch("/api/mpesa/parse", { method: "POST", body: { message } }),
   },
 
+  exchange: {
+    branches: () => apiFetch("/api/exchange/branches"),
+    list: (params = {}) => apiFetch(`/api/exchange/transfers?${new URLSearchParams(params)}`),
+    send: (payload) => apiFetch("/api/exchange/transfers", { method: "POST", body: payload }),
+    receive: (id) => apiFetch(`/api/exchange/transfers/${id}/receive`, { method: "POST" }),
+    reject: (id) => apiFetch(`/api/exchange/transfers/${id}/reject`, { method: "POST" }),
+    cancel: (id) => apiFetch(`/api/exchange/transfers/${id}/cancel`, { method: "POST" }),
+  },
+
   imports: {
     scan: (messages) => apiFetch("/api/imports", { method: "POST", body: { messages } }),
     list: () => apiFetch("/api/imports"),

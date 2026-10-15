@@ -49,12 +49,18 @@
           <div class="card">
             <div class="card-head">
               <h2>Stock</h2>
-              <button class="primary-btn" id="newStockBtn">+ Add item</button>
+              <div class="head-actions">
+                <button class="ghost-btn" id="exchangeBtn">Exchange stock</button>
+                <button class="primary-btn" id="newStockBtn">+ Add item</button>
+              </div>
             </div>
+            <label class="field" id="branchFilterWrap" hidden><span>Show</span>
+              <select id="branchFilter"><option value="">All branches (collective)</option></select>
+            </label>
             <div class="table-scroll">
             <table class="data-table">
-              <thead><tr><th>Item</th><th>Category</th><th>Description</th><th>Unit price</th><th>In stock</th><th></th></tr></thead>
-              <tbody id="stockBody"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
+              <thead><tr><th id="thBranch" hidden>Branch</th><th>Item</th><th>Category</th><th>Description</th><th>Unit price</th><th>In stock</th><th></th></tr></thead>
+              <tbody id="stockBody"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
             </table>
             </div>
             <p class="file-hint">Quantity only changes through recorded transactions (a Receiving = sale, a Paying = restock) — it can't be edited directly here, so every change always has a transaction behind it.</p>
