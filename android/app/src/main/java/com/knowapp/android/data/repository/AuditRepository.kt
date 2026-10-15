@@ -54,6 +54,15 @@ class AuditRepository(private val api: ApiService) {
         }
     }
 
+    suspend fun deleteDraft(auditId: Int): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val response = api.deleteAudit(auditId)
+            if (response.isSuccessful) Result.success(Unit) else Result.failure(Exception(errorFor(response.code())))
+        } catch (e: java.io.IOException) {
+            Result.failure(Exception("Couldn't reach the server. Check your connection and try again."))
+        }
+    }
+
     suspend fun transactionsFor(auditId: Int): AuditTransactionsResult = withContext(Dispatchers.IO) {
         try {
             val response = api.getAuditTransactions(auditId)

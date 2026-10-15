@@ -62,6 +62,13 @@ class AuditsViewModel(private val repository: AuditRepository, private val sessi
         }
     }
 
+    fun delete(auditId: Int) {
+        viewModelScope.launch {
+            repository.deleteDraft(auditId)
+            refresh()
+        }
+    }
+
     fun finalize(auditId: Int) {
         viewModelScope.launch {
             repository.finalize(auditId)

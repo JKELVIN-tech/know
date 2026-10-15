@@ -121,6 +121,7 @@ class StockViewModel(
         description: String,
         price: String,
         quantity: String,
+        assignBranch: String,
         onDone: (Boolean) -> Unit,
     ) {
         viewModelScope.launch {
@@ -140,7 +141,7 @@ class StockViewModel(
 
             val description = description.trim().ifBlank { null }
             val result = if (editing == null) repository.create(name.trim(), categoryId, description, priceValue, quantityValue, if (isOwner) _state.value.branches.firstOrNull { it.name == _state.value.branchFilter }?.id else null)
-            else repository.update(editing.id, name.trim(), categoryId, description, priceValue)
+            else repository.update(editing.id, name.trim(), categoryId, description, priceValue, _state.value.branches.firstOrNull { it.name == assignBranch }?.id)
 
             result.onSuccess {
                 _state.value = _state.value.copy(saving = false, message = if (editing == null) "Item added." else "Item updated.")

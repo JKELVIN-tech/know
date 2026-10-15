@@ -209,9 +209,10 @@ fun StockScreen(
         StockForm(
             editing = editing,
             state = state,
+            canAssign = viewModel.isOwner && editing?.branchId == null && editing != null,
             onDismiss = { showForm = false },
-            onSave = { name, category, newCategory, description, price, qty ->
-                viewModel.save(editing, name, category, newCategory, description, price, qty) { ok -> if (ok) showForm = false }
+            onSave = { name, category, newCategory, description, price, qty, branch ->
+                viewModel.save(editing, name, category, newCategory, description, price, qty, branch) { ok -> if (ok) showForm = false }
             },
             onDelete = { item -> viewModel.delete(item) { ok -> if (ok) showForm = false } },
             docCount = editing?.let { state.docCounts[it.id] ?: 0 } ?: 0,
@@ -262,7 +263,8 @@ private fun StockForm(
     editing: StockItemOut?,
     state: StockUiState,
     onDismiss: () -> Unit,
-    onSave: (String, String, String, String, String, String) -> Unit,
+    onSave: (String, String, String, String, String, String, String) -> Unit,
+    canAssign: Boolean = false,
     onDelete: (StockItemOut) -> Unit,
     docCount: Int,
     onOpenDocuments: (StockItemOut) -> Unit,
@@ -278,6 +280,7 @@ private fun StockForm(
     var price by remember { mutableStateOf(editing?.unitPrice?.toBigDecimalOrNull()?.toPlainString() ?: "") }
     var quantity by remember { mutableStateOf("") }
     var confirmDelete by remember { mutableStateOf(false) }
+    var branch by remember { mutableStateOf("") }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -286,6 +289,9 @@ private fun StockForm(
         ) {
             Text(if (editing == null) "Add stock item" else "Edit item", style = MaterialTheme.typography.titleLarge, fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold)
             OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
+            if (canAssign && state.branches.isNotEmpty()) {
+                SimpleDropdown("Assign to branch", listOf("Keep shared") + state.branches.map { it.name }, branch.ifEmpty { "Keep shared" }, { branch = if (it == "Keep shared") "" else it })
+            }
             SimpleDropdown("Category", categoryNames, category, { category = it })
             if (category == NEW_CATEGORY) {
                 OutlinedTextField(value = newCategory, onValueChange = { newCategory = it }, label = { Text("New category name") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
@@ -305,7 +311,7 @@ private fun StockForm(
             OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description (optional)") }, modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
 
             Button(
-                onClick = { onSave(name, category, newCategory, description, price, quantity) },
+                onClick = { onSave(name, category, newCategory, description, price, quantity, branch) },
                 enabled = !state.saving,
                 shape = PillShape,
                 modifier = Modifier.fillMaxWidth(),

@@ -197,6 +197,9 @@ interface ApiService {
     @GET("/api/audits/{auditId}/transactions")
     suspend fun getAuditTransactions(@Path("auditId") auditId: Int): Response<List<TransactionOut>>
 
+    @DELETE("/api/audits/{auditId}")
+    suspend fun deleteAudit(@Path("auditId") auditId: Int): Response<Unit>
+
     @POST("/api/audits/{auditId}/finalize")
     suspend fun finalizeAudit(@Path("auditId") auditId: Int): Response<AuditOut>
 

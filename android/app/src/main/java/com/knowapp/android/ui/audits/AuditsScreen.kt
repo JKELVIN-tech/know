@@ -47,6 +47,7 @@ import com.knowapp.android.ui.theme.PillShape
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import androidx.compose.material3.AlertDialog
 
 private val displayDateFormat = DateTimeFormatter.ofPattern("d MMM yyyy")
 
@@ -60,6 +61,8 @@ fun AuditsScreen(
 ) {
     val state = viewModel.uiState
     var showCreateDialog by remember { mutableStateOf(false) }
+    var pendingFinalize by remember { mutableStateOf<Int?>(null) }
+    var pendingDelete by remember { mutableStateOf<Int?>(null) }
 
     Scaffold(
         topBar = {
@@ -105,12 +108,32 @@ fun AuditsScreen(
                             audit,
                             canFinalize = audit.submittedById == currentUserId,
                             onOpen = { onOpenAudit(audit.id) },
-                            onFinalize = { viewModel.finalize(audit.id) },
+                            onFinalize = { pendingFinalize = audit.id },
+                            onDelete = { pendingDelete = audit.id },
                         )
                     }
                 }
             }
         }
+    }
+
+    pendingFinalize?.let { id ->
+        AlertDialog(
+            onDismissRequest = { pendingFinalize = null },
+            title = { Text("Finalize this audit?") },
+            text = { Text("Finalizing locks every entry in this period so it can no longer be edited or deleted.") },
+            confirmButton = { TextButton(onClick = { viewModel.finalize(id); pendingFinalize = null }) { Text("Finalize") } },
+            dismissButton = { TextButton(onClick = { pendingFinalize = null }) { Text("Cancel") } },
+        )
+    }
+    pendingDelete?.let { id ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Delete this draft audit?") },
+            text = { Text("No entries are touched.") },
+            confirmButton = { TextButton(onClick = { viewModel.delete(id); pendingDelete = null }) { Text("Delete") } },
+            dismissButton = { TextButton(onClick = { pendingDelete = null }) { Text("Cancel") } },
+        )
     }
 
     if (showCreateDialog) {
@@ -128,7 +151,7 @@ fun AuditsScreen(
 }
 
 @Composable
-private fun AuditRow(audit: AuditOut, canFinalize: Boolean, onOpen: () -> Unit, onFinalize: () -> Unit) {
+private fun AuditRow(audit: AuditOut, canFinalize: Boolean, onOpen: () -> Unit, onFinalize: () -> Unit, onDelete: () -> Unit) {
     AppCard(modifier = Modifier.fillMaxWidth()) {
         Text(audit.title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
         Badge(
@@ -156,6 +179,7 @@ private fun AuditRow(audit: AuditOut, canFinalize: Boolean, onOpen: () -> Unit, 
                 ) {
                     Text("Finalize")
                 }
+                TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) { Text("Delete draft") }
             }
         }
     }

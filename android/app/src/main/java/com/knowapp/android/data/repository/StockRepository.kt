@@ -59,9 +59,9 @@ class StockRepository(private val api: ApiService) {
         }
     }
 
-    suspend fun update(id: Int, name: String, categoryId: Int, description: String?, unitPrice: Double?): Result<StockItemOut> = withContext(Dispatchers.IO) {
+    suspend fun update(id: Int, name: String, categoryId: Int, description: String?, unitPrice: Double?, branchId: Int? = null): Result<StockItemOut> = withContext(Dispatchers.IO) {
         try {
-            val body = mapOf<String, Any?>("name" to name, "category_id" to categoryId, "description" to description, "unit_price" to unitPrice)
+            val body = mapOf<String, Any?>("name" to name, "category_id" to categoryId, "description" to description, "unit_price" to unitPrice, "branch_id" to branchId)
             val response = api.updateStockItem(id, body)
             val item = response.body()
             if (response.isSuccessful && item != null) Result.success(item)
