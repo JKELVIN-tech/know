@@ -318,7 +318,7 @@ const Splash = (() => {
     setTimeout(() => {
       node.classList.add("is-done");
       setTimeout(() => node.remove(), 300);
-    }, Math.max(0, 1200 - (Date.now() - shownAt)));
+    }, Math.max(0, 700 - (Date.now() - shownAt)));
   }
   return { show, hide };
 })();

@@ -1,4 +1,4 @@
-const CACHE = "know-v15";
+const CACHE = "know-v16";
 const ASSETS = [
   "./",
   "./index.html",
@@ -68,18 +68,19 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Network-first: always prefer the live version so a new deploy takes
-  // effect immediately instead of being masked by a stale cache. Cache
-  // is only a fallback for when there's no network at all.
+  // Show the saved copy at once and refresh it in the background; a new deploy appears on the next open.
   e.respondWith(
-    fetch(e.request)
-      .then((res) => {
-        if (res.ok) {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copy));
-        }
-        return res;
-      })
-      .catch(() => caches.match(e.request).then((hit) => hit || caches.match("./login.html")))
+    caches.match(e.request).then((hit) => {
+      const live = fetch(e.request)
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(e.request, copy));
+          }
+          return res;
+        })
+        .catch(() => hit || caches.match("./login.html"));
+      return hit || live;
+    })
   );
 });

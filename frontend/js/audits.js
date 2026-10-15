@@ -41,4 +41,5 @@
   });
 
   await load();
+  onFreshData(load);
 })();

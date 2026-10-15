@@ -142,4 +142,5 @@
     }
   }
   await load();
+  onFreshData(load);
 })();

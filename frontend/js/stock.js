@@ -14,6 +14,7 @@
   if (isOwner) await loadBranches();
   await loadItems();
   refreshExchangeBadge();
+  onFreshData(loadItems);
 
   async function loadBranches() {
     try { branches = await Api.exchange.branches(); } catch { branches = []; }

@@ -8,6 +8,9 @@
 
 const API_BASE = window.TEACH_API_BASE || "http://localhost:8000";
 
+// A sleeping free-tier server needs a moment to start, so nudge it the instant a page opens, before any data is asked for.
+try { if (!/localhost|127\.0\.0\.1/.test(API_BASE)) fetch(`${API_BASE}/api/health`, { mode: "no-cors", cache: "no-store" }).catch(() => {}); } catch { /* optional */ }
+
 function readCookie(name) {
   const match = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
   return match ? decodeURIComponent(match[1]) : null;
@@ -42,6 +45,7 @@ const Session = {
   clear() {
     localStorage.removeItem(this.KEY);
     TokenStore.clear();
+    swrClear();
   },
 
   isAuthenticated() {
@@ -67,7 +71,7 @@ class ApiError extends Error {
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-async function apiFetch(path, { method = "GET", body, isForm = false } = {}) {
+async function rawFetch(path, { method = "GET", body, isForm = false } = {}) {
   const headers = {};
   if (!isForm && body !== undefined) headers["Content-Type"] = "application/json";
 
@@ -116,6 +120,76 @@ async function apiFetch(path, { method = "GET", body, isForm = false } = {}) {
     throw new ApiError(typeof detail === "string" ? detail : JSON.stringify(detail), res.status);
   }
 
+  return data;
+}
+
+/* Saved copies of read requests: show the last known data at once, then refresh quietly and tell the page if anything changed. */
+const SWR_PREFIX = "know_swr:";
+const SWR_MAX_AGE = 7 * 24 * 3600 * 1000;
+const swrInFlight = new Set();
+
+function swrAllowed(path) {
+  return !path.startsWith("/api/auth") && !path.includes("download") && !path.includes("pdf") && !path.includes("export");
+}
+
+function swrKey(path) {
+  return `${SWR_PREFIX}${Session.get()?.user_id ?? "x"}:${path}`;
+}
+
+function swrRead(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const hit = JSON.parse(raw);
+    if (!hit || Date.now() - hit.t > SWR_MAX_AGE) return null;
+    return hit;
+  } catch { return null; }
+}
+
+function swrWrite(key, data) {
+  try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), d: data })); } catch { /* storage full: skip caching */ }
+}
+
+function swrClear() {
+  try {
+    Object.keys(localStorage).filter((k) => k.startsWith(SWR_PREFIX)).forEach((k) => localStorage.removeItem(k));
+  } catch { /* storage blocked */ }
+}
+
+async function swrRefresh(path, key, before) {
+  if (swrInFlight.has(key)) return;
+  swrInFlight.add(key);
+  try {
+    const fresh = await rawFetch(path);
+    if (JSON.stringify(fresh) !== JSON.stringify(before)) {
+      swrWrite(key, fresh);
+      window.dispatchEvent(new CustomEvent("know:fresh", { detail: { path } }));
+    }
+  } catch { /* offline or waking: keep showing the saved copy */ }
+  finally { swrInFlight.delete(key); }
+}
+
+function onFreshData(fn) {
+  let timer;
+  window.addEventListener("know:fresh", () => { clearTimeout(timer); timer = setTimeout(fn, 150); });
+}
+
+async function apiFetch(path, options = {}) {
+  const method = options.method || "GET";
+  if (method !== "GET") {
+    const result = await rawFetch(path, options);
+    swrClear();
+    return result;
+  }
+  if (!swrAllowed(path)) return rawFetch(path, options);
+  const key = swrKey(path);
+  const hit = swrRead(key);
+  if (hit) {
+    swrRefresh(path, key, hit.d);
+    return hit.d;
+  }
+  const data = await rawFetch(path, options);
+  swrWrite(key, data);
   return data;
 }
 

@@ -6,6 +6,7 @@
   let opening = { cash: 0, mpesa: 0, bank: 0, is_set: false };
 
   await loadData();
+  onFreshData(loadData);
   window.addEventListener("online", handleBackOnline);
   window.addEventListener("offline", refreshOfflineBanner);
 
