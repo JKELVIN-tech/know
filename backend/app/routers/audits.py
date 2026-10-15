@@ -19,8 +19,8 @@ router = APIRouter(prefix="/api/audits", tags=["audits"])
 @router.post("", response_model=AuditOut, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
 def create_audit(request: Request, payload: AuditCreate, db: Session = Depends(get_db), current_user: User = Depends(require_institution_scope)):
-    if current_user.role != UserRole.STAFF:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only staff submit audits")
+    if current_user.role not in (UserRole.STAFF, UserRole.INSTITUTION_ADMIN):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only staff and owners submit audits")
 
     audit = Audit(
         institution_id=current_user.institution_id,

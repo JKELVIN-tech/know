@@ -202,6 +202,7 @@ const NAV_ITEMS = {
   institution_admin: [
     { href: "admin-home.html", nav: "admin-home", label: "Overview", icon: "dashboard" },
     { href: "books.html", nav: "books", label: "Books", icon: "audit" },
+    { href: "audits.html", nav: "audits", label: "Audits", icon: "audit" },
     { href: "accounts.html", nav: "accounts", label: "Accounts", icon: "accounts" },
     { href: "stock.html", nav: "stock", label: "Stock", icon: "stock" },
     { href: "settings.html", nav: "settings", label: "Settings", icon: "settings" },
@@ -359,6 +360,9 @@ const Sheet = {
     if (!this.el) return;
     this.el.hidden = true;
     $("#sheetBody").innerHTML = "";
+    const done = this.onClose;
+    this.onClose = null;
+    if (done) done();
   },
 };
 

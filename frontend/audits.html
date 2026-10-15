@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en" data-mode="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>KNOW — Audits</title>
+    <meta name="description" content="Institution books for the owner." />
+    <meta name="theme-color" content="#0f766e" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./assets/logo.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body data-page="audits">
+    <div class="app-shell" id="appShell">
+      <aside class="sidebar">
+        <div class="brand">
+          <img class="brand-logo" id="sidebarLogo" src="./assets/logo.svg" alt="KNOW logo" />
+          <div class="brand-text">
+            <strong id="sidebarSchool">KNOW</strong>
+            <span>Owner</span>
+          </div>
+        </div>
+        <nav class="side-nav" aria-label="Main"></nav>
+        <div class="side-foot">
+          <p class="principle">&ldquo;Your institution, your accounts, your call.&rdquo;</p>
+        </div>
+      </aside>
+
+      <main class="main" id="main">
+        <header class="topbar">
+          <div class="topbar-id">
+            <img class="topbar-logo" id="topLogo" src="./assets/logo.svg" alt="KNOW logo" />
+            <div class="topbar-copy">
+              <p class="greeting" id="greeting">Good morning</p>
+              <p class="subtle" id="schoolLine">Institution</p>
+            </div>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-btn" id="modeToggle" aria-label="Toggle light or dark mode" title="Light / dark mode">
+              <span class="ico" data-ico="mode"></span>
+            </button>
+          </div>
+        </header>
+
+        <section class="page is-active" data-page="audits">
+          <div class="card">
+            <div class="card-head"><h2>Audits</h2><span class="subtle">Saved from Books when you pick a custom date range</span></div>
+            <ul class="txn-list" id="auditList"><li class="subtle">Loading…</li></ul>
+          </div>
+        </section>
+      </main>
+
+      <nav class="tabbar" id="tabbar" aria-label="Main"></nav>
+    </div>
+
+    <div class="sheet-backdrop" id="sheetBackdrop" hidden>
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+        <div class="sheet-head">
+          <h2 id="sheetTitle">Name this audit</h2>
+          <button class="icon-btn" id="sheetClose" aria-label="Close">&#10005;</button>
+        </div>
+        <div class="sheet-body" id="sheetBody"></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+
+    <script src="config.js"></script>
+    <script src="./js/api.js"></script>
+    <script src="./js/ui.js"></script>
+    <script src="./js/audits.js"></script>
+  </body>
+</html>

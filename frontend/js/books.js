@@ -54,6 +54,92 @@
     }
   }
 
-  [filterEl, $("#booksFrom"), $("#booksTo")].forEach((el) => el.addEventListener("change", load));
+  let lastKey = "";
+  let lastFrom = "";
+  let lastTo = "";
+
+  const dayValue = (iso) => {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
+  function settle(from, to) {
+    lastFrom = from;
+    lastTo = to;
+    lastKey = from && to ? `${from}|${to}` : "";
+  }
+
+  function askTitle(from, to) {
+    const staffName = filterEl.value ? nameOf(Number(filterEl.value)) : "";
+    Sheet.open("Name this audit", `
+      <p class="form-error" id="auditMsg"></p>
+      <form id="auditForm">
+        <label class="field"><span>Title</span><input type="text" id="auditTitle" maxlength="200" required value="Books ${from} to ${to}" /></label>
+        <p class="file-hint">This range is saved in Audits with its title and dates, and the books are generated for it. Nothing is locked until you finalize it there.</p>
+        <div class="form-actions"><button type="submit" class="primary-btn" id="auditSubmit">Save and generate</button></div>
+      </form>
+    `);
+    $("#auditTitle").focus();
+    Sheet.onClose = () => {
+      $("#booksFrom").value = lastFrom;
+      $("#booksTo").value = lastTo;
+      load();
+    };
+    $("#auditForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = $("#auditMsg");
+      hideFormMessage(msg);
+      const btn = $("#auditSubmit");
+      btn.disabled = true;
+      try {
+        await Api.audits.create({
+          title: $("#auditTitle").value.trim(),
+          period_start: new Date(from + "T00:00:00").toISOString(),
+          period_end: new Date(to + "T23:59:59").toISOString(),
+          summary: staffName ? `Books viewed for ${staffName}` : null,
+        });
+        settle(from, to);
+        Sheet.onClose = null;
+        Sheet.close();
+        toast("Saved to Audits.");
+        await load();
+      } catch (err) {
+        showFormMessage(msg, err.status === 0 ? "You need a connection to save an audit." : err.message || "Could not save the audit.");
+        btn.disabled = false;
+      }
+    });
+  }
+
+  function onRangeChange() {
+    const from = $("#booksFrom").value;
+    const to = $("#booksTo").value;
+    if (!from || !to) { settle(from, to); load(); return; }
+    if (from > to) {
+      toast("The start date must come before the end date.");
+      $("#booksFrom").value = lastFrom;
+      $("#booksTo").value = lastTo;
+      return;
+    }
+    if (`${from}|${to}` === lastKey) { load(); return; }
+    askTitle(from, to);
+  }
+
+  filterEl.addEventListener("change", load);
+  $("#booksFrom").addEventListener("change", onRangeChange);
+  $("#booksTo").addEventListener("change", onRangeChange);
+
+  const auditId = new URLSearchParams(location.search).get("audit");
+  if (auditId) {
+    try {
+      const a = await Api.audits.get(auditId);
+      $("#booksFrom").value = dayValue(a.period_start);
+      $("#booksTo").value = dayValue(a.period_end);
+      settle($("#booksFrom").value, $("#booksTo").value);
+      $("#booksAuditNote").textContent = `Audit: ${a.title}`;
+      $("#booksAuditNote").hidden = false;
+    } catch (err) {
+      toast(err.message || "Could not open that audit.");
+    }
+  }
   await load();
 })();
