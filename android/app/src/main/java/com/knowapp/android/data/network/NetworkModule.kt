@@ -7,7 +7,11 @@ import okhttp3.Authenticator
 import okhttp3.FormBody
 import okhttp3.Request
 import okhttp3.Route
+import java.io.File
 import java.io.IOException
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Protocol
+import okhttp3.ResponseBody.Companion.toResponseBody
 
 import com.knowapp.android.BuildConfig
 import com.knowapp.android.data.SessionStore
@@ -31,6 +35,41 @@ private class AuthInterceptor(private val sessionStore: SessionStore) : Intercep
             }
         }
         return chain.proceed(request)
+    }
+}
+
+// Shows the last saved copy of a read when the server is slow to answer (for example waking up), and refreshes it whenever the server does answer
+private class StaleIfSlowInterceptor(dir: File, private val sessionStore: SessionStore) : Interceptor {
+    private val folder = File(dir, "know_reads").also { it.mkdirs() }
+
+    private fun fileFor(request: Request): File {
+        val raw = "${sessionStore.session.value?.userId}|${request.url}"
+        val name = java.security.MessageDigest.getInstance("SHA-256").digest(raw.toByteArray()).joinToString("") { "%02x".format(it) }
+        return File(folder, name)
+    }
+
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val request = chain.request()
+        val path = request.url.encodedPath
+        if (request.method != "GET") {
+            val response = chain.proceed(request)
+            if (response.isSuccessful) folder.listFiles()?.forEach { it.delete() }
+            return response
+        }
+        if (path.contains("/api/auth") || path.contains("pdf") || path.contains("download")) return chain.proceed(request)
+        val saved = fileFor(request)
+        val hasCopy = saved.exists() && System.currentTimeMillis() - saved.lastModified() < 7 * 24 * 3600 * 1000L
+        val response = try {
+            if (hasCopy) chain.withConnectTimeout(2500, TimeUnit.MILLISECONDS).withReadTimeout(2500, TimeUnit.MILLISECONDS).proceed(request) else chain.proceed(request)
+        } catch (e: IOException) {
+            if (!hasCopy) throw e
+            return Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("Saved copy")
+                .body(saved.readBytes().toResponseBody("application/json".toMediaType())).build()
+        }
+        if (response.isSuccessful) {
+            try { saved.writeBytes(response.peekBody(5_000_000).bytes()) } catch (_: IOException) { }
+        }
+        return response
     }
 }
 
@@ -92,7 +131,7 @@ private class SilentLoginAuthenticator(private val sessionStore: SessionStore) :
 }
 
 object NetworkModule {
-    fun buildApiService(sessionStore: SessionStore): ApiService {
+    fun buildApiService(sessionStore: SessionStore, cacheDir: File): ApiService {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
         }
@@ -106,6 +145,7 @@ object NetworkModule {
             .writeTimeout(45, TimeUnit.SECONDS)
             .addInterceptor(ClientHeaderInterceptor())
             .addInterceptor(AuthInterceptor(sessionStore))
+            .addInterceptor(StaleIfSlowInterceptor(cacheDir, sessionStore))
             .authenticator(SilentLoginAuthenticator(sessionStore))
             .addInterceptor(logging)
             .build()

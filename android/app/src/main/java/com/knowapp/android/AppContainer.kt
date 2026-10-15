@@ -29,7 +29,7 @@ import com.knowapp.android.data.repository.UsersRepository
 /** One instance built in KnowApplication.onCreate, threaded down to ViewModels. */
 class AppContainer(context: Context) {
     val sessionStore = SessionStore(context.applicationContext)
-    private val apiService = NetworkModule.buildApiService(sessionStore)
+    private val apiService = NetworkModule.buildApiService(sessionStore, context.applicationContext.cacheDir)
 
     val authRepository = AuthRepository(apiService, sessionStore)
     val offlineStore = OfflineStore(context)

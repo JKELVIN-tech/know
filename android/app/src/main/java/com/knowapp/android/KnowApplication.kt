@@ -12,5 +12,11 @@ class KnowApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // A sleeping server needs a moment to start, so nudge it as soon as the app opens
+        Thread {
+            try {
+                java.net.URL("${BuildConfig.API_BASE_URL}/api/health").openConnection().apply { connectTimeout = 60000; readTimeout = 60000 }.getInputStream().close()
+            } catch (_: Exception) { }
+        }.start()
     }
 }
