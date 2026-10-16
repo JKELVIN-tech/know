@@ -35,7 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.knowapp.android.data.model.ApproveBody
-import com.knowapp.android.data.model.MessageImportOut
+import com.knowapp.android.data.local.DetectedMessage
 import com.knowapp.android.ui.components.kes
 
 private fun reasonText(reason: String?): String? = when (reason) {
@@ -99,7 +99,7 @@ fun ImportsScreen(viewModel: ImportsViewModel, onBack: () -> Unit) {
 
 @Composable
 private fun ImportCard(
-    item: MessageImportOut,
+    item: DetectedMessage,
     expanded: Boolean,
     busy: Boolean,
     stock: List<Pair<Int, String>>,

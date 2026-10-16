@@ -34,6 +34,7 @@ class AppContainer(context: Context) {
     val authRepository = AuthRepository(apiService, sessionStore)
     val offlineStore = OfflineStore(context)
     val photoStore = PhotoStore(context)
+    val detectedStore = com.knowapp.android.data.local.DetectedStore(context) { sessionStore.session.value?.userId }
     val networkMonitor = NetworkMonitor(context)
     val updateManager = UpdateManager(context)
     val themeStore = ThemeStore(context)

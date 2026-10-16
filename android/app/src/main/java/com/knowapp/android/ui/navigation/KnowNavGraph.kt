@@ -191,7 +191,7 @@ fun KnowNavGraph(container: AppContainer) {
         }
         composable(Routes.IMPORTS) {
             val viewModel: com.knowapp.android.ui.imports.ImportsViewModel = viewModel(
-                factory = vmFactory { com.knowapp.android.ui.imports.ImportsViewModel(container.importsRepository, container.stockRepository, container.pendingShare) },
+                factory = vmFactory { com.knowapp.android.ui.imports.ImportsViewModel(container.transactionRepository, container.stockRepository, container.detectedStore, container.pendingShare) },
             )
             com.knowapp.android.ui.imports.ImportsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }
