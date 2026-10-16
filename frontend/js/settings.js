@@ -153,4 +153,83 @@
     btn.addEventListener("click", () => setTheme(btn.dataset.mode));
   });
   applyTheme();
+
+  /* ---------------- Vault: encrypted backup, locked with the owner's own password ---------------- */
+
+  if (session.role === "institution_admin") {
+    $("#vaultCard").hidden = false;
+    const ITER = 600000;
+    const enc = new TextEncoder();
+    const toB64 = (buf) => { let s = ""; const b = new Uint8Array(buf); for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(s); };
+    const fromB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+    const pipe = async (bytes, stream) => new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer());
+
+    async function keyFor(password, salt, iter) {
+      const base = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
+      return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: iter, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+    }
+
+    async function lock(object, password) {
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const packed = await pipe(enc.encode(JSON.stringify(object)), new CompressionStream("gzip"));
+      const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc.encode("know-vault|1") }, await keyFor(password, salt, ITER), packed);
+      return JSON.stringify({ format: "know-vault-file", v: 1, kdf: "PBKDF2-SHA256", iter: ITER, salt: toB64(salt), iv: toB64(iv), data: toB64(data) });
+    }
+
+    async function unlock(text, password) {
+      const file = JSON.parse(text);
+      if (file.format !== "know-vault-file" || file.v !== 1) throw new Error("This is not a KNOW backup file.");
+      let packed;
+      try {
+        packed = await crypto.subtle.decrypt({ name: "AES-GCM", iv: fromB64(file.iv), additionalData: enc.encode("know-vault|1") }, await keyFor(password, fromB64(file.salt), file.iter), fromB64(file.data));
+      } catch { throw new Error("Wrong password, or the file was changed."); }
+      return JSON.parse(new TextDecoder().decode(await pipe(new Uint8Array(packed), new DecompressionStream("gzip"))));
+    }
+
+    const say = (text, bad = true) => showFormMessage($("#vaultMsg"), text, bad);
+
+    $("#vaultBackup").addEventListener("click", async () => {
+      const password = $("#vaultPass").value;
+      if (password.length < 10) { say("Choose a password of at least 10 characters."); return; }
+      const btn = $("#vaultBackup");
+      btn.disabled = true;
+      try {
+        const payload = await apiFetch("/api/vault/export");
+        const locked = await lock(payload, password);
+        const check = await unlock(locked, password);
+        if (check.checks.sha256 !== payload.checks.sha256) throw new Error("The backup could not be verified, so it was not saved.");
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(new Blob([locked], { type: "application/octet-stream" }));
+        link.download = `know-vault-${new Date().toISOString().slice(0, 10)}.knowvault`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        say(`Backup verified and downloaded: ${payload.checks.counts.transactions} transactions. Keep the file and password somewhere safe.`, false);
+      } catch (err) {
+        say(err.status === 0 ? "You need a connection to make a backup." : err.message || "Could not make the backup.");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    $("#vaultRestore").addEventListener("click", async () => {
+      const password = $("#vaultPass").value;
+      const file = $("#vaultFile").files[0];
+      if (!file) { say("Choose a backup file first."); return; }
+      if (!password) { say("Enter the backup password."); return; }
+      const btn = $("#vaultRestore");
+      btn.disabled = true;
+      try {
+        const payload = await unlock(await file.text(), password);
+        const n = payload.checks.counts;
+        if (!confirm(`Restore "${payload.institution_name}" (${n.transactions} transactions, ${n.stock_items} stock items) into this institution? It only works on a new, empty institution and cannot be undone.`)) return;
+        const result = await apiFetch("/api/vault/restore", { method: "POST", body: JSON.stringify(payload), isForm: true });
+        say(`Restored ${result.restored.transactions} transactions and ${result.staff_accounts} staff accounts. Staff logins were not restored: set a new password for each on the Accounts page.`, false);
+      } catch (err) {
+        say(err.status === 0 ? "You need a connection to restore." : err.message || "Could not restore.");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
 })();

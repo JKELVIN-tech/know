@@ -147,7 +147,7 @@ const SWR_MAX_AGE = 7 * 24 * 3600 * 1000;
 const swrInFlight = new Set();
 
 function swrAllowed(path) {
-  return !path.startsWith("/api/auth") && !path.includes("download") && !path.includes("pdf") && !path.includes("export");
+  return !path.startsWith("/api/auth") && !path.includes("download") && !path.includes("pdf") && !path.includes("export") && !path.includes("/vault");
 }
 
 function swrKey(path) {

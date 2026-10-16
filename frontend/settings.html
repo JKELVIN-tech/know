@@ -125,7 +125,17 @@
               </a>
             </div>
           </div>
-        </section>
+                <div class="card" id="vaultCard" hidden>
+          <div class="card-head"><h2>Vault</h2><span class="subtle">Encrypted backup</span></div>
+          <p class="subtle">Download an encrypted copy of your transactions, ledger, stock, audits and document records. It is locked with a password only you know. We never store the file or the password, and photos are not included. If the password is lost, the backup cannot be opened.</p>
+          <label class="field"><span>Backup password (at least 10 characters)</span><input type="password" id="vaultPass" autocomplete="new-password" /></label>
+          <p class="form-message" id="vaultMsg" hidden></p>
+          <div class="head-actions"><button type="button" class="primary-btn" id="vaultBackup">Download backup</button></div>
+          <h3>Restore into a new, empty institution</h3>
+          <label class="field"><span>Backup file</span><input type="file" id="vaultFile" accept=".knowvault,application/json" /></label>
+          <div class="head-actions"><button type="button" class="ghost-btn" id="vaultRestore">Restore</button></div>
+        </div>
+      </section>
       </main>
 
       <nav class="tabbar" id="tabbar" aria-label="Main"></nav>
