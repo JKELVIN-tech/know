@@ -71,7 +71,25 @@ class ApiError extends Error {
 
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
+// Phone photos are several MB; shrink them in the browser first so uploads work on weak connections (logos and PNGs are left alone)
+async function shrinkFormPhotos(form) {
+  for (const [key, value] of [...form.entries()]) {
+    if (!(value instanceof File) || !/^image\/(jpeg|webp)$/.test(value.type) || value.size < 400 * 1024) continue;
+    try {
+      const bitmap = await createImageBitmap(value, { imageOrientation: "from-image" });
+      const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.78));
+      if (blob && blob.size < value.size) form.set(key, new File([blob], value.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" }));
+    } catch { /* keep the original if the browser can't decode it */ }
+  }
+}
+
 async function rawFetch(path, { method = "GET", body, isForm = false } = {}) {
+  if (isForm && body instanceof FormData && !path.includes("/logo")) await shrinkFormPhotos(body);
   const headers = {};
   if (!isForm && body !== undefined) headers["Content-Type"] = "application/json";
 

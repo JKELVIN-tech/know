@@ -20,7 +20,7 @@ class PhotoStore(context: Context) {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
             var sample = 1
-            while (bounds.outWidth / sample > 2400 || bounds.outHeight / sample > 2400) sample *= 2
+            while (bounds.outWidth / sample > 3200 || bounds.outHeight / sample > 3200) sample *= 2
             val options = BitmapFactory.Options().apply { inSampleSize = sample }
             val decoded = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) } ?: return null
             val rotation = resolver.openInputStream(uri)?.use {
@@ -32,8 +32,10 @@ class PhotoStore(context: Context) {
                 }
             } ?: 0f
             val upright = if (rotation == 0f) decoded else Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, Matrix().apply { postRotate(rotation) }, true)
+            val longest = maxOf(upright.width, upright.height)
+            val scaled = if (longest > 1600) Bitmap.createScaledBitmap(upright, upright.width * 1600 / longest, upright.height * 1600 / longest, true) else upright
             val target = File(dir, "${UUID.randomUUID()}.jpg")
-            target.outputStream().use { upright.compress(Bitmap.CompressFormat.JPEG, 80, it) }
+            target.outputStream().use { scaled.compress(Bitmap.CompressFormat.JPEG, 78, it) }
             target.absolutePath
         } catch (e: Exception) {
             null
