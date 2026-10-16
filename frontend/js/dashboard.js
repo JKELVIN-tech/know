@@ -34,4 +34,13 @@
   } catch (err) {
     toast(err.message || "Could not load the overview.");
   }
+
+  try {
+    const u = await Api.storage();
+    const mb = (b) => `${(b / 1048576).toFixed(b < 10485760 ? 1 : 0)} MB`;
+    const pct = (used, limit) => `${Math.round((used / limit) * 100)}%`;
+    $("#storageDb").textContent = u.database_bytes == null ? "Usage is not available right now." : `Database: ${mb(u.database_bytes)} of ${mb(u.database_limit_bytes)} (${pct(u.database_bytes, u.database_limit_bytes)})`;
+    $("#storagePhotos").textContent = u.storage_bytes == null ? "" : `Photos and files: ${mb(u.storage_bytes)} of ${mb(u.storage_limit_bytes)} (${pct(u.storage_bytes, u.storage_limit_bytes)})`;
+    $("#storageList").innerHTML = u.institutions.length ? u.institutions.map((r) => `<li class="ex-row"><div><strong>${escapeHtml(r.name)}</strong><small>${r.photo_files} photos</small></div><div>${mb(r.photo_bytes)}</div></li>`).join("") : "";
+  } catch { /* the meter is optional */ }
 })();

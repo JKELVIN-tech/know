@@ -340,6 +340,8 @@ const Api = {
     parse: (message) => apiFetch("/api/mpesa/parse", { method: "POST", body: { message } }),
   },
 
+  storage: () => apiFetch("/api/admin/storage-usage"),
+
   exchange: {
     branches: () => apiFetch("/api/exchange/branches"),
     list: (params = {}) => apiFetch(`/api/exchange/transfers?${new URLSearchParams(params)}`),
