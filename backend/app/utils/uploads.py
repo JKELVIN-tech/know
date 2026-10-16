@@ -3,7 +3,7 @@ import uuid
 
 import httpx
 from fastapi import HTTPException, UploadFile, status
-from PIL import Image
+from PIL import Image, ImageOps
 
 from app.core.config import settings
 
@@ -18,7 +18,7 @@ def _validate_content_type(file: UploadFile) -> None:
         )
 
 
-def _process_and_upload(contents: bytes, folder: str, max_bytes: int, max_dim: tuple[int, int]) -> str:
+def _process_and_upload(contents: bytes, folder: str, max_bytes: int, max_dim: tuple[int, int], photo: bool = False) -> str:
     """
     Validate size/content and re-encode with Pillow (rather than trusting
     the uploaded bytes) so a mismatched/malicious file can't slip through
@@ -36,7 +36,7 @@ def _process_and_upload(contents: bytes, folder: str, max_bytes: int, max_dim: t
         image = Image.open(io.BytesIO(contents))
         image.verify()
         # Re-open after verify() (which leaves the file unusable for further ops)
-        image = Image.open(io.BytesIO(contents)).convert("RGBA")
+        image = ImageOps.exif_transpose(Image.open(io.BytesIO(contents))).convert("RGBA")
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -46,7 +46,15 @@ def _process_and_upload(contents: bytes, folder: str, max_bytes: int, max_dim: t
     image.thumbnail(max_dim)
 
     buf = io.BytesIO()
-    image.save(buf, format="PNG")
+    if photo:
+        # Photos are stored as compressed JPEG (about a fifth of the size of PNG); transparency is flattened onto white
+        flat = Image.new("RGB", image.size, (255, 255, 255))
+        flat.paste(image, mask=image.split()[3])
+        flat.save(buf, format="JPEG", quality=78, optimize=True, progressive=True)
+        extension, content_type = "jpg", "image/jpeg"
+    else:
+        image.save(buf, format="PNG")
+        extension, content_type = "png", "image/png"
     png_bytes = buf.getvalue()
 
     if not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_ROLE_KEY:
@@ -55,7 +63,7 @@ def _process_and_upload(contents: bytes, folder: str, max_bytes: int, max_dim: t
             detail="Image storage is not configured",
         )
 
-    object_path = f"{folder}/{uuid.uuid4().hex}.png"
+    object_path = f"{folder}/{uuid.uuid4().hex}.{extension}"
     upload_url = f"{settings.SUPABASE_URL}/storage/v1/object/{settings.SUPABASE_STORAGE_BUCKET}/{object_path}"
     try:
         res = httpx.post(
@@ -64,7 +72,7 @@ def _process_and_upload(contents: bytes, folder: str, max_bytes: int, max_dim: t
             headers={
                 "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",
                 "apikey": settings.SUPABASE_SERVICE_ROLE_KEY,
-                "Content-Type": "image/png",
+                "Content-Type": content_type,
                 "x-upsert": "true",
             },
             timeout=20,
@@ -116,13 +124,13 @@ def save_school_logo(file: UploadFile, contents: bytes) -> str:
 def save_transaction_image(file: UploadFile, contents: bytes) -> str:
     """Optional evidence photo attached to a Receiving/Paying entry."""
     _validate_content_type(file)
-    return _process_and_upload(contents, "transactions", settings.MAX_TRANSACTION_IMAGE_SIZE_BYTES, (1600, 1600))
+    return _process_and_upload(contents, "transactions", settings.MAX_TRANSACTION_IMAGE_SIZE_BYTES, (1600, 1600), photo=True)
 
 
 def save_post_image(file: UploadFile, contents: bytes) -> str:
     """Optional image attached to a news post."""
     _validate_content_type(file)
-    return _process_and_upload(contents, "posts", settings.MAX_POST_IMAGE_SIZE_BYTES, (1600, 1600))
+    return _process_and_upload(contents, "posts", settings.MAX_POST_IMAGE_SIZE_BYTES, (1600, 1600), photo=True)
 
 
 def save_avatar(file: UploadFile, contents: bytes) -> str:
