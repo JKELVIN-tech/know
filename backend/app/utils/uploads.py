@@ -7,6 +7,18 @@ from PIL import Image, ImageOps
 
 from app.core.config import settings
 
+Image.MAX_IMAGE_PIXELS = 40_000_000
+MAX_UPLOAD_READ = 6 * 1024 * 1024
+
+
+def read_upload(file: UploadFile, limit: int = MAX_UPLOAD_READ) -> bytes:
+    """Reads an upload without ever holding more than the limit in memory."""
+    data = file.file.read(limit + 1)
+    if len(data) > limit:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="That file is too large")
+    return data
+
+
 ALLOWED_CONTENT_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/webp"}
 
 

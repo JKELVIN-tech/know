@@ -11,7 +11,7 @@ from app.models.activity_log import ActivityLog
 from app.models.institution import Institution
 from app.models.transaction import Transaction
 from app.models.user import User, UserRole, StaffType
-from app.utils.uploads import delete_storage_object, save_avatar
+from app.utils.uploads import delete_storage_object, save_avatar, read_upload
 from app.schemas.user import UserCreate, UserOut, PasswordReset, UserUpdate, AuditSharingUpdate, SelfPasswordChange
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -71,7 +71,7 @@ def update_my_profile(
         user.bio = bio or None
     old_avatar = user.avatar_path
     if avatar is not None and avatar.filename:
-        user.avatar_path = save_avatar(avatar, avatar.file.read())
+        user.avatar_path = save_avatar(avatar, read_upload(avatar))
         delete_storage_object(old_avatar)
     elif remove_avatar:
         user.avatar_path = None

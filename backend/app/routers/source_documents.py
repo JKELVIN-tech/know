@@ -15,7 +15,7 @@ from app.models.stock_item import StockItem
 from app.models.transaction import Transaction
 from app.models.user import User, UserRole
 from app.schemas.source_document import SourceDocumentOut
-from app.utils.uploads import delete_storage_object, save_transaction_image
+from app.utils.uploads import delete_storage_object, save_transaction_image, read_upload
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -99,7 +99,7 @@ def create_document(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Amount cannot be negative")
     if stock_item_id is not None:
         item = db.query(StockItem).filter(StockItem.id == stock_item_id, StockItem.institution_id == current_user.institution_id).first()
-        if not item:
+        if not item or (current_user.role == UserRole.STAFF and item.branch_id not in (None, current_user.id)):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="That stock item isn't in your institution")
     if transaction_id is not None:
         txn = db.query(Transaction).filter(Transaction.id == transaction_id, Transaction.institution_id == current_user.institution_id).first()
@@ -108,7 +108,7 @@ def create_document(
 
     image_path = None
     if image is not None and image.filename:
-        image_path = save_transaction_image(image, image.file.read())
+        image_path = save_transaction_image(image, read_upload(image))
 
     doc = SourceDocument(
         institution_id=current_user.institution_id,

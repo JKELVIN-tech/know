@@ -9,7 +9,7 @@ from app.models.post_comment import PostComment
 from app.models.post_report import PostReport
 from app.models.user import User, UserRole
 from app.schemas.post import PostCommentCreate, PostCommentOut, PostOut, PostReportCreate, PostReportOut
-from app.utils.uploads import save_post_image, delete_storage_object
+from app.utils.uploads import save_post_image, delete_storage_object, read_upload
 
 router = APIRouter(prefix="/api/posts", tags=["posts"])
 
@@ -38,7 +38,7 @@ def create_post(
 
     image_path = None
     if image is not None and image.filename:
-        contents = image.file.read()
+        contents = read_upload(image)
         image_path = save_post_image(image, contents)
 
     post = Post(

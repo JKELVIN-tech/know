@@ -12,6 +12,8 @@ class ProductCategoryCreate(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("name is required")
+        if len(v) > 60:
+            raise ValueError("name is too long")
         return v
 
 

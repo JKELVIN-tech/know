@@ -8,7 +8,7 @@ from app.core.limiter import limiter
 from app.models.institution import Institution
 from app.models.user import User, UserRole
 from app.schemas.institution import InstitutionCreate, InstitutionOut
-from app.utils.uploads import save_school_logo, delete_storage_object
+from app.utils.uploads import save_school_logo, delete_storage_object, read_upload
 
 router = APIRouter(prefix="/api/institutions", tags=["institutions"])
 
@@ -67,7 +67,7 @@ def upload_institution_logo(
     if not institution:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Institution not found")
 
-    contents = file.file.read()
+    contents = read_upload(file)
     old_logo_path = institution.logo_path
     path = save_school_logo(file, contents)
     institution.logo_path = path

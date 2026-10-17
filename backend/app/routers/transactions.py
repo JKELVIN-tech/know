@@ -18,7 +18,7 @@ from pydantic import ValidationError
 
 from app.schemas.transaction import BatchCreate, TransactionOut
 from app.utils.ledger import post_transaction
-from app.utils.uploads import save_transaction_image, delete_storage_object
+from app.utils.uploads import save_transaction_image, delete_storage_object, read_upload
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 
@@ -127,7 +127,7 @@ def create_transaction(
 
     image_path = None
     if image is not None and image.filename:
-        contents = image.file.read()
+        contents = read_upload(image)
         image_path = save_transaction_image(image, contents)
 
     txn = Transaction(
@@ -240,7 +240,7 @@ def create_batch(
         created.append(txn)
 
     if image is not None and image.filename:
-        image_path = save_transaction_image(image, image.file.read())
+        image_path = save_transaction_image(image, read_upload(image))
         for txn in created:
             txn.image_path = image_path
 
@@ -392,7 +392,7 @@ def update_transaction(
         txn.mpesa_payer_name = mpesa_payer_name.strip() or None
     old_image_path = txn.image_path
     if image is not None and image.filename:
-        contents = image.file.read()
+        contents = read_upload(image)
         txn.image_path = save_transaction_image(image, contents)
 
     db.flush()

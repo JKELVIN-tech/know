@@ -22,7 +22,7 @@ def list_categories(db: Session = Depends(get_db), _: User = Depends(get_current
 
 
 @router.post("", response_model=ProductCategoryOut, status_code=status.HTTP_201_CREATED)
-@limiter.limit("20/minute")
+@limiter.limit("10/minute")
 def create_category(payload: ProductCategoryCreate, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Open to any authenticated user — staff can add a category inline
     from the Stock page instead of waiting on a super admin. Rename/delete

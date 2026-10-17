@@ -5,6 +5,21 @@ from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from app.models.user import UserRole, StaffType
 
 
+_COMMON = {"password", "password1", "12345678", "123456789", "1234567890", "qwerty123", "qwertyuiop", "11111111", "iloveyou", "abc12345", "welcome1", "admin123", "letmein123"}
+
+
+def check_password(v: str) -> str:
+    v = v.strip()
+    if len(v) < 8:
+        raise ValueError("password must be at least 8 characters")
+    if len(v.encode("utf-8")) > 72:
+        raise ValueError("password is too long (72 bytes at most)")
+    if v.lower() in _COMMON or len(set(v)) < 4:
+        raise ValueError("password is too easy to guess")
+    return v
+
+
+
 class UserCreate(BaseModel):
     """Used by a super_admin (any institution) or an institution_admin
     (their own institution only — enforced in the router, not here) to
@@ -19,10 +34,7 @@ class UserCreate(BaseModel):
     @field_validator("password")
     @classmethod
     def password_strength(cls, v: str) -> str:
-        v = v.strip()
-        if len(v) < 8:
-            raise ValueError("password must be at least 8 characters")
-        return v
+        return check_password(v)
 
     @field_validator("username")
     @classmethod
@@ -98,10 +110,7 @@ class PasswordReset(BaseModel):
     @field_validator("new_password")
     @classmethod
     def password_strength(cls, v: str) -> str:
-        v = v.strip()
-        if len(v) < 8:
-            raise ValueError("password must be at least 8 characters")
-        return v
+        return check_password(v)
 
 
 class SelfPasswordChange(BaseModel):

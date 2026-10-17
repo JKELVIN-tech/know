@@ -8,15 +8,22 @@ from sqlalchemy.orm import Session
 from app.core.activity_log import log_activity
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.deps import ACCESS_TOKEN_COOKIE
+from app.core.deps import ACCESS_TOKEN_COOKIE, get_current_user
 from app.core.limiter import limiter
-from app.core.security import verify_password, create_access_token, generate_csrf_token
+from app.core.security import hash_password, verify_password, create_access_token, generate_csrf_token
 from app.models.user import User
 from app.schemas.auth import TokenResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 CSRF_COOKIE = "csrf_token"
+
+def _utc(moment: datetime) -> datetime:
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
+
+
+# Checked when the username does not exist, so a wrong username takes as long as a wrong password
+_DUMMY_HASH = hash_password("not-a-real-password")
 
 
 def _set_session_cookies(response: Response, token: str, csrf_token: str) -> None:
@@ -47,6 +54,7 @@ def _set_session_cookies(response: Response, token: str, csrf_token: str) -> Non
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("10/minute")
+@limiter.limit("120/minute", key_func=lambda request: "login-all")
 def login(
     request: Request,
     response: Response,
@@ -67,8 +75,8 @@ def login(
     submitted_username = form_data.username.strip()
     user = db.query(User).filter(func.lower(User.username) == submitted_username.lower()).first()
 
-    if user and user.locked_until and user.locked_until > datetime.now(timezone.utc):
-        minutes_left = max(1, int((user.locked_until - datetime.now(timezone.utc)).total_seconds() // 60) + 1)
+    if user and user.locked_until and _utc(user.locked_until) > datetime.now(timezone.utc):
+        minutes_left = max(1, int((_utc(user.locked_until) - datetime.now(timezone.utc)).total_seconds() // 60) + 1)
         log_activity(db, action="login_blocked_locked", actor_username=form_data.username, request=request)
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
@@ -76,6 +84,8 @@ def login(
         )
 
     # A phone keyboard often adds a trailing space after a word, so the password is also tried without outer spaces
+    if not user:
+        verify_password(form_data.password, _DUMMY_HASH)
     password_ok = bool(user) and (
         verify_password(form_data.password, user.hashed_password)
         or (form_data.password != form_data.password.strip() and verify_password(form_data.password.strip(), user.hashed_password))
@@ -110,7 +120,7 @@ def login(
     log_activity(db, action="login_success", actor=user, request=request)
 
     # The Android app asks for a long-lived session so people stay signed in; the website keeps its short one
-    lifetime = 60 * 24 * 180 if x_client == "android" else None
+    lifetime = 60 * 24 * settings.ANDROID_TOKEN_EXPIRE_DAYS if x_client == "android" else None
     token = create_access_token(data={"sub": str(user.id), "role": user.role.value, "tv": user.token_version}, expires_minutes=lifetime)
     csrf_token = generate_csrf_token()
     _set_session_cookies(response, token, csrf_token)
@@ -123,6 +133,17 @@ def login(
         full_name=user.full_name,
         institution_id=user.institution_id,
     )
+
+
+@router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("5/minute")
+def logout_all(request: Request, response: Response, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Signs this account out of every device at once (a lost phone, a shared computer)."""
+    current_user.token_version += 1
+    db.commit()
+    log_activity(db, action="logout_all", actor=current_user, request=request, detail="Signed out of all devices")
+    response.delete_cookie(ACCESS_TOKEN_COOKIE, path="/")
+    response.delete_cookie(CSRF_COOKIE, path="/")
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

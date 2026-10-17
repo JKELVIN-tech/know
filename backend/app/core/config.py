@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    ANDROID_TOKEN_EXPIRE_DAYS: int = 90
+    ENABLE_DOCS: bool = False
+    MAX_REQUEST_BYTES: int = 12 * 1024 * 1024
 
     BOOTSTRAP_SUPER_ADMIN_USERNAME: str | None = None
     BOOTSTRAP_SUPER_ADMIN_PASSWORD: str | None = None

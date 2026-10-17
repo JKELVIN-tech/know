@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -11,7 +12,16 @@ from app.core.database import Base, engine, SessionLocal
 from app.core.limiter import limiter
 from app.routers import auth, institutions, users, transactions, audits, posts, reports, moderation, activity_log, stock, mpesa, product_categories, market_analysis, accounting, source_documents, admin_overview, message_imports, exchange, vault, storage_usage
 
-app = FastAPI(title="KNOW", description="Institution financial audit, inventory & communication portal")
+app = FastAPI(
+    title="KNOW",
+    description="Institution financial audit, inventory & communication portal",
+    docs_url="/docs" if settings.ENABLE_DOCS else None,
+    redoc_url="/redoc" if settings.ENABLE_DOCS else None,
+    openapi_url="/openapi.json" if settings.ENABLE_DOCS else None,
+)
+
+if len(settings.SECRET_KEY) < 32 or settings.SECRET_KEY.lower().startswith(("change", "secret", "test", "example")):
+    logging.getLogger("know.security").warning("SECRET_KEY is short or looks like a placeholder; set a random value of 32+ characters")
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -20,16 +30,32 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Client"],
 )
 
 _DOCS_PATHS = ("/docs", "/redoc", "/openapi.json")
 
 
 @app.middleware("http")
+async def limit_request_size(request: Request, call_next):
+    """Refuses oversized bodies up front, before anything is read into memory."""
+    limit = 25 * 1024 * 1024 if request.url.path.startswith("/api/vault") else settings.MAX_REQUEST_BYTES
+    try:
+        declared = int(request.headers.get("content-length") or 0)
+    except ValueError:
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": "Bad request"})
+    if declared > limit:
+        return JSONResponse(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, content={"detail": "Request is too large"})
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        # Financial data must never sit in a browser or proxy cache
+        response.headers["Cache-Control"] = "no-store"
 
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"

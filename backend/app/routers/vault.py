@@ -11,7 +11,7 @@ from app.utils.vault import VaultError, export_institution, institution_is_empty
 
 router = APIRouter(prefix="/api/vault", tags=["vault"])
 
-MAX_BODY_BYTES = 40 * 1024 * 1024
+MAX_BODY_BYTES = 25 * 1024 * 1024
 
 
 def _owner(current_user: User = Depends(get_current_user)) -> User:
@@ -34,6 +34,8 @@ def export_vault(request: Request, db: Session = Depends(get_db), owner: User = 
 @limiter.limit("10/hour")
 async def restore_vault(request: Request, db: Session = Depends(get_db), owner: User = Depends(_owner)):
     """Loads a decrypted backup into this institution, which must be new and empty; it is all-or-nothing."""
+    if int(request.headers.get("content-length") or 0) > MAX_BODY_BYTES:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Backup is too large")
     raw = await request.body()
     if len(raw) > MAX_BODY_BYTES:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Backup is too large")
