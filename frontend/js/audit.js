@@ -183,7 +183,7 @@
     return `
       <html><head><title>${title}</title><style>${STATEMENT_CSS}</style></head><body>
         <h1>${title}</h1>
-        <p class="meta">${$("#schoolLine").textContent} &middot; ${formatDate(start.toISOString())} – ${formatDate(end.toISOString())}</p>
+        <p class="meta">${escapeHtml($("#schoolLine").textContent)} &middot; ${formatDate(start.toISOString())} – ${formatDate(end.toISOString())}</p>
         <table>
           <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Evidence</th><th>Amount</th></tr></thead>
           <tbody>${bodyHtml || `<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No transactions in this range.</td></tr>`}</tbody>

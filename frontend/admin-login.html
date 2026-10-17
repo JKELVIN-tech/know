@@ -2,6 +2,7 @@
 <html lang="en" data-mode="light">
   <head>
     <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.onrender.com https://*.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>KNOW — Super admin sign in</title>
     <meta name="description" content="Super admin sign-in for KNOW: onboard institutions, set portal icons, and issue staff credentials." />
@@ -43,26 +44,6 @@
     <script src="config.js"></script>
     <script src="./js/api.js"></script>
     <script src="./js/ui.js"></script>
-    <script>
-      paintIcons();
-      if (Session.isAuthenticated()) {
-        location.href = Session.get().role === "super_admin" ? "dashboard.html" : "home.html";
-      }
-
-      const form = document.getElementById("loginForm");
-      const msg = document.getElementById("authError");
-      const submitBtn = document.getElementById("loginSubmit");
-
-      form.addEventListener("submit", (e) => {
-        e.preventDefault();
-        handleLoginSubmit({
-          username: document.getElementById("loginUsername").value.trim(),
-          password: document.getElementById("loginPassword").value,
-          expectedRole: "super_admin",
-          wrongRoleMessage: "This sign-in is for super admins only. Use the staff sign-in page instead.",
-          form, msgEl: msg, submitBtn,
-        });
-      });
-    </script>
+    <script src="./js/login-admin.js"></script>
   </body>
 </html>

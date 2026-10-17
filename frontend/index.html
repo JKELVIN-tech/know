@@ -2,17 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.onrender.com https://*.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'" />
     <title>KNOW</title>
     <link rel="icon" href="./assets/logo.svg" type="image/svg+xml" />
     <script src="config.js"></script>
     <script src="./js/api.js"></script>
-    <script>
-      const session = Session.get();
-      const dest = !Session.isAuthenticated()
-        ? "login.html"
-        : session.role === "super_admin" ? "dashboard.html" : "home.html";
-      location.replace(dest);
-    </script>
+    <script src="./js/boot.js"></script>
   </head>
   <body>
     <p>Redirecting to <a href="./login.html">KNOW</a>&hellip;</p>

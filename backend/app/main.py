@@ -46,7 +46,7 @@ async def limit_request_size(request: Request, call_next):
     except ValueError:
         return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": "Bad request"})
     if declared > limit:
-        return JSONResponse(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, content={"detail": "Request is too large"})
+        return JSONResponse(status_code=413, content={"detail": "Request is too large"})
     return await call_next(request)
 
 

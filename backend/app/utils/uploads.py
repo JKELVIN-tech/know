@@ -15,7 +15,7 @@ def read_upload(file: UploadFile, limit: int = MAX_UPLOAD_READ) -> bytes:
     """Reads an upload without ever holding more than the limit in memory."""
     data = file.file.read(limit + 1)
     if len(data) > limit:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="That file is too large")
+        raise HTTPException(status_code=413, detail="That file is too large")
     return data
 
 
