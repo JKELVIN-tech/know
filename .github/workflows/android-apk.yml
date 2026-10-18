@@ -52,9 +52,11 @@ jobs:
             echo "No private key configured; using the fallback key"
           fi
 
-      - name: Build debug APK
+      - name: Build release APK
         working-directory: android
-        run: gradle assembleDebug --no-daemon
+        run: |
+          gradle assembleRelease --no-daemon -x lintVitalRelease
+          cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/app-debug.apk
 
       - name: Publish as a rolling release
         uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
@@ -62,10 +64,10 @@ jobs:
           tag: android-latest
           name: "K.N.O.W. Android — latest build"
           body: |
-            Auto-built debug APK from the latest push to `main` (commit ${{ github.sha }}).
-            Debug build for preview/testing — not signed for production distribution.
+            Auto-built release APK from the latest push to `main` (commit ${{ github.sha }}).
+            The file keeps its old name so existing installs can update in place.
             Android 8.0 (API 26) or newer. You may need to allow "install from unknown sources".
-          artifacts: android/app/build/outputs/apk/debug/app-debug.apk
+          artifacts: android/app/build/outputs/apk/release/app-debug.apk
           allowUpdates: true
           replacesArtifacts: true
           prerelease: true

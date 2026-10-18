@@ -133,7 +133,7 @@ private class SilentLoginAuthenticator(private val sessionStore: SessionStore) :
 object NetworkModule {
     fun buildApiService(sessionStore: SessionStore, cacheDir: File): ApiService {
         val logging = HttpLoggingInterceptor().apply {
-            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
+            level = HttpLoggingInterceptor.Level.NONE
         }
 
         // Render's free tier cold-starts after inactivity — a first request
