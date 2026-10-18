@@ -1,18 +1,20 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import BackgroundTasks, APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.activity_log import log_activity
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_institution_scope, require_admin_scope
-from app.core.limiter import limiter
+from app.core.limiter import get_client_ip, limiter
 from app.core.security import hash_password, verify_password
 from app.models.activity_log import ActivityLog
 from app.models.institution import Institution
 from app.models.transaction import Transaction
 from app.models.user import User, UserRole, StaffType
 from app.utils.uploads import delete_storage_object, save_avatar, read_upload
-from app.schemas.user import UserCreate, UserOut, PasswordReset, UserUpdate, AuditSharingUpdate, SelfPasswordChange
+from app.schemas.user import UserCreate, UserOut, PasswordReset, UserUpdate, AuditSharingUpdate, SelfPasswordChange, EmailChange
+from app.utils.email import email_configured
+from app.utils.password_reset import issue_token, recent_requests, send_reset_email
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -50,6 +52,23 @@ def change_my_password(payload: SelfPasswordChange, request: Request, db: Sessio
     db.commit()
     log_activity(db, action="self_password_change", actor=current_user, target_type="user", target_id=current_user.id,
                  detail="Changed own password", request=request)
+
+
+@router.post("/me/email", response_model=UserOut)
+@limiter.limit("5/minute")
+def change_my_email(payload: EmailChange, request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Sets the address that password reset links are sent to; needs the current password so a left-open session can't redirect resets."""
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not verify_password(payload.current_password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
+    new_email = payload.email or None
+    if new_email and db.query(User).filter(func.lower(User.email) == new_email, User.id != user.id).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="That email address is already used by another account")
+    user.email = new_email
+    db.commit()
+    db.refresh(user)
+    log_activity(db, action="email_changed", actor=user, target_type="user", target_id=user.id, detail="Changed own reset email", request=request)
+    return user
 
 
 @router.patch("/me/profile", response_model=UserOut)
@@ -127,7 +146,10 @@ def create_user(payload: UserCreate, request: Request, db: Session = Depends(get
         staff_type=payload.staff_type if payload.role == UserRole.STAFF else None,
         institution_id=payload.institution_id if needs_institution else None,
         created_by_id=admin.id,
+        email=payload.email,
     )
+    if payload.email and db.query(User).filter(func.lower(User.email) == payload.email).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="That email address is already used by another account")
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -175,6 +197,13 @@ def update_user(user_id: int, payload: UserUpdate, request: Request, db: Session
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
         changes.append(f"username '{user.username}' -> '{payload.username}'")
         user.username = payload.username
+
+    if payload.email is not None and (payload.email or None) != user.email:
+        new_email = payload.email or None
+        if new_email and db.query(User).filter(func.lower(User.email) == new_email, User.id != user_id).first():
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="That email address is already used by another account")
+        changes.append("email updated")
+        user.email = new_email
 
     if payload.full_name is not None and payload.full_name != user.full_name:
         changes.append(f"full name '{user.full_name}' -> '{payload.full_name}'")
@@ -274,3 +303,25 @@ def reset_password(user_id: int, payload: PasswordReset, request: Request, db: S
     log_activity(db, action="password_reset", actor=admin, target_type="user", target_id=user.id,
                  detail=f"Password reset for '{user.username}'", request=request)
     return user
+
+
+@router.post("/{user_id}/send-reset-link", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("10/minute")
+def send_reset_link(user_id: int, request: Request, background: BackgroundTasks, db: Session = Depends(get_db), admin: User = Depends(require_admin_scope)):
+    """An admin emails a reset link to an account they manage, so the new password is never typed in by someone else."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    _assert_can_manage(admin, user)
+    if not user.email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This account has no email address. Add one first, or set a password directly.")
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This account is deactivated")
+    if not email_configured():
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Email is not set up on the server yet")
+    if recent_requests(db, user.id) >= 5:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many links were sent for this account. Try again later.")
+    token = issue_token(db, user, get_client_ip(request))
+    background.add_task(send_reset_email, user.email, user.full_name, user.username, token)
+    log_activity(db, action="reset_link_sent", actor=admin, target_type="user", target_id=user.id, detail=f"Reset link sent to '{user.username}'", request=request)
+    return {"message": "Reset link sent"}

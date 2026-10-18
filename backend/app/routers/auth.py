@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Header, APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import BackgroundTasks, Header, APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -11,8 +11,12 @@ from app.core.database import get_db
 from app.core.deps import ACCESS_TOKEN_COOKIE, get_current_user
 from app.core.limiter import limiter
 from app.core.security import hash_password, verify_password, create_access_token, generate_csrf_token
+from app.core.limiter import get_client_ip
+from app.models.password_reset import PasswordReset
 from app.models.user import User
 from app.schemas.auth import TokenResponse
+from app.schemas.user import ForgotPassword, ResetWithToken
+from app.utils.password_reset import hash_token, issue_token, recent_requests, send_changed_email, send_reset_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -155,3 +159,46 @@ def logout(response: Response):
     """
     response.delete_cookie(ACCESS_TOKEN_COOKIE, path="/")
     response.delete_cookie(CSRF_COOKIE, path="/")
+
+
+FORGOT_REPLY = {"message": "If an account matches and has an email address, a reset link is on its way. It works once and expires soon."}
+
+
+@router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit("5/hour")
+@limiter.limit("100/hour", key_func=lambda request: "forgot-all")
+def forgot_password(payload: ForgotPassword, request: Request, background: BackgroundTasks, db: Session = Depends(get_db)):
+    """Emails a reset link when the account exists and has an email; the reply is identical either way."""
+    ident = payload.identifier.lower()
+    user = db.query(User).filter(func.lower(User.username) == ident).first() or db.query(User).filter(func.lower(User.email) == ident).first()
+    if user and user.is_active and user.email and recent_requests(db, user.id) < 3:
+        token = issue_token(db, user, get_client_ip(request))
+        background.add_task(send_reset_email, user.email, user.full_name, user.username, token)
+        log_activity(db, action="password_reset_requested", target_type="user", target_id=user.id, actor_username=user.username, detail="Reset link requested", request=request)
+    return FORGOT_REPLY
+
+
+@router.post("/reset-password", status_code=status.HTTP_200_OK)
+@limiter.limit("10/hour")
+def reset_password_with_token(payload: ResetWithToken, request: Request, background: BackgroundTasks, db: Session = Depends(get_db)):
+    """Sets a new password from a valid, unused, unexpired link, and signs the account out everywhere."""
+    now = datetime.now(timezone.utc)
+    row = db.query(PasswordReset).filter(PasswordReset.token_hash == hash_token(payload.token.strip())).first()
+    user = db.get(User, row.user_id) if row else None
+    if not row or row.used_at is not None or _utc(row.expires_at) < now or not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This reset link is invalid or has expired. Ask for a new one.")
+    from app.schemas.user import check_password
+    try:
+        check_password(payload.new_password, user.username)
+    except ValueError as err:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(err))
+    user.hashed_password = hash_password(payload.new_password.strip())
+    user.token_version += 1
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    db.query(PasswordReset).filter(PasswordReset.user_id == user.id, PasswordReset.used_at.is_(None)).update({"used_at": now})
+    db.commit()
+    log_activity(db, action="password_reset_completed", target_type="user", target_id=user.id, actor_username=user.username, detail="Password changed with a reset link", request=request)
+    if user.email:
+        background.add_task(send_changed_email, user.email, user.full_name, user.username)
+    return {"message": "Your password was changed. You can sign in now."}

@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     ANDROID_TOKEN_EXPIRE_DAYS: int = 90
     ENABLE_DOCS: bool = False
+    # Password reset email: an email service with a web API (free hosts block SMTP); provider is "resend" or "brevo"
+    EMAIL_PROVIDER: str = ""
+    EMAIL_API_KEY: str = ""
+    EMAIL_FROM: str = ""
+    FRONTEND_URL: str = "http://localhost:5500"
+    PASSWORD_RESET_MINUTES: int = 30
     MAX_REQUEST_BYTES: int = 12 * 1024 * 1024
 
     BOOTSTRAP_SUPER_ADMIN_USERNAME: str | None = None

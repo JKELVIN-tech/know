@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
@@ -8,16 +9,47 @@ from app.models.user import UserRole, StaffType
 _COMMON = {"password", "password1", "12345678", "123456789", "1234567890", "qwerty123", "qwertyuiop", "11111111", "iloveyou", "abc12345", "welcome1", "admin123", "letmein123"}
 
 
-def check_password(v: str) -> str:
+_LEET = str.maketrans({"0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "@": "a", "$": "s", "!": "i"})
+_WORDS = ("password", "passw0rd", "qwerty", "letmein", "welcome", "iloveyou", "changeme", "administrator", "abcdefg")
+
+
+def check_password(v: str, username: str | None = None) -> str:
     v = v.strip()
-    if len(v) < 8:
-        raise ValueError("password must be at least 8 characters")
+    missing = []
+    if len(v) < 10:
+        missing.append("at least 10 characters")
+    if not re.search(r"[A-Z]", v):
+        missing.append("an uppercase letter")
+    if not re.search(r"[a-z]", v):
+        missing.append("a lowercase letter")
+    if not re.search(r"[0-9]", v):
+        missing.append("a number")
+    if not re.search(r"[^A-Za-z0-9\s]", v):
+        missing.append("a symbol")
+    if missing:
+        raise ValueError("Password needs " + ", ".join(missing))
     if len(v.encode("utf-8")) > 72:
-        raise ValueError("password is too long (72 bytes at most)")
-    if v.lower() in _COMMON or len(set(v)) < 4:
-        raise ValueError("password is too easy to guess")
+        raise ValueError("Password is too long (72 bytes at most)")
+    simplified = v.lower().translate(_LEET)
+    if v.lower() in _COMMON or len(set(v)) < 5 or any(word in simplified for word in _WORDS):
+        raise ValueError("Password is too easy to guess")
+    if username and len(username) >= 3 and username.lower() in v.lower():
+        raise ValueError("Password must not contain the username")
     return v
 
+
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]{2,}$")
+
+
+def clean_email(v: str | None) -> str | None:
+    if v is None:
+        return None
+    v = v.strip().lower()
+    if v == "":
+        return ""
+    if len(v) > 254 or not _EMAIL.match(v):
+        raise ValueError("Enter a valid email address")
+    return v
 
 
 class UserCreate(BaseModel):
@@ -30,6 +62,12 @@ class UserCreate(BaseModel):
     role: UserRole = UserRole.STAFF
     staff_type: StaffType | None = None
     institution_id: int | None = None
+    email: str | None = None
+
+    @field_validator("email")
+    @classmethod
+    def email_format(cls, v: str | None) -> str | None:
+        return clean_email(v) or None
 
     @field_validator("password")
     @classmethod
@@ -46,6 +84,7 @@ class UserCreate(BaseModel):
 
     @model_validator(mode="after")
     def staff_type_required_for_staff(self):
+        check_password(self.password, self.username)
         if self.role == UserRole.STAFF and self.staff_type is None:
             raise ValueError("staff_type is required for a staff account (teacher or general)")
         return self
@@ -64,6 +103,7 @@ class UserOut(BaseModel):
     avatar_path: str | None = None
     institution_id: int | None
     institution_name: str | None = None
+    email: str | None = None
     last_active_at: datetime | None = None
     share_audits: bool
     created_at: datetime
@@ -85,6 +125,12 @@ class UserUpdate(BaseModel):
     institution_id: int | None = None
     staff_type: StaffType | None = None
     role: UserRole | None = None
+    email: str | None = None
+
+    @field_validator("email")
+    @classmethod
+    def email_format(cls, v: str | None) -> str | None:
+        return clean_email(v)
 
     @field_validator("username")
     @classmethod
@@ -114,14 +160,43 @@ class PasswordReset(BaseModel):
 
 
 class SelfPasswordChange(BaseModel):
-    """A user changing their own password (as opposed to PasswordReset,
-    which is a super_admin resetting someone else's)."""
+    """A user changing their own password."""
     current_password: str
     new_password: str
 
     @field_validator("new_password")
     @classmethod
     def password_strength(cls, v: str) -> str:
-        if len(v) < 8:
-            raise ValueError("password must be at least 8 characters")
+        return check_password(v)
+
+
+class ForgotPassword(BaseModel):
+    identifier: str
+
+    @field_validator("identifier")
+    @classmethod
+    def not_blank(cls, v: str) -> str:
+        v = v.strip()
+        if not v or len(v) > 254:
+            raise ValueError("Enter your username or email")
         return v
+
+
+class ResetWithToken(BaseModel):
+    token: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return check_password(v)
+
+
+class EmailChange(BaseModel):
+    email: str
+    current_password: str
+
+    @field_validator("email")
+    @classmethod
+    def email_format(cls, v: str) -> str:
+        return clean_email(v) or ""

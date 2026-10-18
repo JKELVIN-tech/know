@@ -13,6 +13,7 @@ from app.models.activity_log import ActivityLog
 from app.models.accounting import Account, AccountType, JournalEntry, JournalLine
 from app.models.message_import import MessageImport
 from app.models.stock_transfer import StockTransfer
+from app.models.password_reset import PasswordReset
 
 __all__ = [
     "Institution",
@@ -40,4 +41,5 @@ __all__ = [
     "JournalLine",
     "MessageImport",
     "StockTransfer",
+    "PasswordReset",
 ]

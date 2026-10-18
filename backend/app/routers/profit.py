@@ -28,6 +28,11 @@ def _owner(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+def _plain(value: Decimal) -> str:
+    """A whole or decimal quantity without exponent notation (10, not 1E+1)."""
+    return format(value.normalize(), "f") if value else "0"
+
+
 def _money(value) -> str:
     return str(Decimal(value or 0).quantize(CENT))
 
@@ -39,10 +44,10 @@ def _bucket(rows: list) -> dict:
     unknown = sum((r["unknown_units"] for r in rows), Decimal("0"))
     profit = costed_revenue - cost
     return {
-        "units": str(sum((r["units"] for r in rows), Decimal("0")).normalize()),
+        "units": _plain(sum((r["units"] for r in rows), Decimal("0"))),
         "revenue": _money(revenue), "cost": _money(cost), "profit": _money(profit),
         "margin": str((profit / costed_revenue * 100).quantize(Decimal("0.1"))) if costed_revenue > 0 else None,
-        "unknown_units": str(unknown.normalize()),
+        "unknown_units": _plain(unknown),
     }
 
 

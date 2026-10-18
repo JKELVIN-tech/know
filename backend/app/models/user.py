@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, Boolean, func
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, Boolean, Index, func
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -26,6 +26,8 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(80), nullable=False, unique=True, index=True)
+    # Used only to send password reset links; unique per account
+    email = Column(String(254), nullable=True)
     full_name = Column(String(150), nullable=False)
     hashed_password = Column(String(255), nullable=False)
     role = Column(Enum(UserRole), nullable=False, default=UserRole.STAFF)
@@ -66,3 +68,6 @@ class User(Base):
     @property
     def institution_name(self) -> str | None:
         return self.institution.name if self.institution else None
+
+
+Index("uq_users_email", func.lower(User.email), unique=True, postgresql_where=User.email.isnot(None))

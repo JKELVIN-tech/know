@@ -36,7 +36,7 @@ ORDER = [
 # Tables whose ids get remapped on restore, by the table name a foreign key points at.
 REMAPPED = {"users", "accounts", "stock_items", "transactions", "journal_entries"}
 # Never exported: secrets, login state and image links (photos are not part of a backup).
-DROP = {"hashed_password", "avatar_path", "image_path", "failed_login_attempts", "locked_until", "token_version", "reset_token"}
+DROP = {"hashed_password", "email", "avatar_path", "image_path", "failed_login_attempts", "locked_until", "token_version", "reset_token"}
 
 
 class VaultError(Exception):

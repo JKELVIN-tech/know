@@ -73,7 +73,7 @@ async def security_headers(request: Request, call_next):
 
 
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
-_CSRF_EXEMPT_PATHS = ("/api/auth/login",)
+_CSRF_EXEMPT_PATHS = ("/api/auth/login", "/api/auth/forgot-password", "/api/auth/reset-password")
 
 
 @app.middleware("http")
