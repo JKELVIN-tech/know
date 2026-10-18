@@ -25,10 +25,19 @@ android {
     // Fixed key so every CI build installs over the previous one
     signingConfigs {
         create("shared") {
-            storeFile = file("know-debug.keystore")
-            storePassword = "knowdebug"
-            keyAlias = "know"
-            keyPassword = "knowdebug"
+            // A private key from the build environment wins; the committed debug key is only the fallback
+            val privateStore = System.getenv("KNOW_KEYSTORE_PATH")
+            if (privateStore != null && file(privateStore).exists()) {
+                storeFile = file(privateStore)
+                storePassword = System.getenv("KNOW_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KNOW_KEY_ALIAS")
+                keyPassword = System.getenv("KNOW_KEY_PASSWORD")
+            } else {
+                storeFile = file("know-debug.keystore")
+                storePassword = "knowdebug"
+                keyAlias = "know"
+                keyPassword = "knowdebug"
+            }
         }
     }
 

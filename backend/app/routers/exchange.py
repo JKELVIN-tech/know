@@ -95,7 +95,7 @@ def create_transfer(payload: TransferCreate, request: Request, db: Session = Dep
     db.commit()
     db.refresh(t)
     log_activity(db, action="stock_transfer_sent", actor=current_user, target_type="stock_transfer", target_id=t.id,
-                 detail=f"Sent {payload.quantity} of '{source.name}' to {branches[payload.to_branch_id].full_name}", request=request)
+                 detail=f"Sent a stock transfer to {branches[payload.to_branch_id].full_name}", request=request)
     return _out(t, _names(db, [t]), current_user)
 
 
@@ -131,7 +131,7 @@ def receive_transfer(transfer_id: int, request: Request, db: Session = Depends(g
     db.commit()
     db.refresh(t)
     log_activity(db, action="stock_transfer_received", actor=current_user, target_type="stock_transfer", target_id=t.id,
-                 detail=f"Received {t.quantity} of '{t.item_name}'", request=request)
+                 detail="Received a stock transfer", request=request)
     return _out(t, _names(db, [t]), current_user)
 
 
@@ -146,7 +146,7 @@ def reject_transfer(transfer_id: int, request: Request, db: Session = Depends(ge
     db.commit()
     db.refresh(t)
     log_activity(db, action="stock_transfer_rejected", actor=current_user, target_type="stock_transfer", target_id=t.id,
-                 detail=f"Rejected {t.quantity} of '{t.item_name}'; returned to sender", request=request)
+                 detail="Rejected a stock transfer; returned to sender", request=request)
     return _out(t, _names(db, [t]), current_user)
 
 
@@ -161,5 +161,5 @@ def cancel_transfer(transfer_id: int, request: Request, db: Session = Depends(ge
     db.commit()
     db.refresh(t)
     log_activity(db, action="stock_transfer_cancelled", actor=current_user, target_type="stock_transfer", target_id=t.id,
-                 detail=f"Cancelled {t.quantity} of '{t.item_name}'; returned to sender", request=request)
+                 detail="Cancelled a stock transfer; returned to sender", request=request)
     return _out(t, _names(db, [t]), current_user)

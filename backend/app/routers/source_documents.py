@@ -128,7 +128,7 @@ def create_document(
     db.commit()
     db.refresh(doc)
     log_activity(db, action="document_created", actor=current_user, target_type="source_document", target_id=doc.id,
-                 detail=f"{doc.doc_type_name} {doc.reference_no or ''}".strip(), request=request)
+                 detail="Recorded a source document", request=request)
     return doc
 
 

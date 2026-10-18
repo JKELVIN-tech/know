@@ -149,7 +149,7 @@ def update_audit(audit_id: int, payload: AuditUpdate, request: Request, db: Sess
     db.commit()
     db.refresh(audit)
     log_activity(db, action="audit_updated", actor=current_user, target_type="audit", target_id=audit.id,
-                 detail=f"Updated '{audit.title}'", request=request)
+                 detail="Updated an audit", request=request)
     return audit
 
 
@@ -170,7 +170,7 @@ def delete_audit(audit_id: int, request: Request, db: Session = Depends(get_db),
     db.delete(audit)
     db.commit()
     log_activity(db, action="audit_deleted", actor=current_user, target_type="audit", target_id=audit_id,
-                 detail=f"Deleted '{title}'", request=request)
+                 detail="Deleted an audit", request=request)
 
 
 @router.post("/{audit_id}/finalize", response_model=AuditOut)
@@ -190,5 +190,5 @@ def finalize_audit(audit_id: int, request: Request, db: Session = Depends(get_db
     db.commit()
     db.refresh(audit)
     log_activity(db, action="audit_finalized", actor=current_user, target_type="audit", target_id=audit.id,
-                 detail=f"Finalized '{audit.title}'", request=request)
+                 detail="Finalized an audit", request=request)
     return audit

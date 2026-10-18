@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from app.core.limiter import limiter
+from app.routers.audits import _get_audit_visible
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -17,12 +19,9 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 
 @router.get("/audits/{audit_id}.pdf")
-def generate_audit_report(audit_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    audit = db.query(Audit).filter(Audit.id == audit_id).first()
-    if not audit:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Audit not found")
-    if current_user.role in (UserRole.STAFF, UserRole.INSTITUTION_ADMIN) and audit.institution_id != current_user.institution_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not permitted to access this audit")
+@limiter.limit("20/minute")
+def generate_audit_report(request: Request, audit_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    audit = _get_audit_visible(audit_id, current_user, db)
 
     institution = db.query(Institution).filter(Institution.id == audit.institution_id).first()
     # Computed from the audit's period rather than a stored link — see
@@ -54,7 +53,9 @@ _METHOD_LABELS = {
 
 
 @router.get("/statements.pdf")
+@limiter.limit("20/minute")
 def generate_statement_report(
+    request: Request,
     start: datetime,
     end: datetime,
     method: TransactionMethod | None = None,

@@ -112,5 +112,5 @@ def set_cost(item_id: int, payload: CostUpdate, request: Request, db: Session = 
     item.avg_cost = payload.avg_cost.quantize(Decimal("0.0001"))
     db.commit()
     log_activity(db, action="stock_cost_set", actor=owner, target_type="stock_item", target_id=item.id,
-                 detail=f"Cost of '{item.name}' set to {payload.avg_cost} (was {before if before is not None else 'unknown'})", request=request)
+                 detail="Stock cost updated", request=request)
     return {"item_id": item.id, "avg_cost": str(item.avg_cost.quantize(CENT))}

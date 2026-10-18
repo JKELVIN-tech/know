@@ -34,6 +34,24 @@ jobs:
         with:
           gradle-version: "8.7"
 
+      - name: Use the private signing key when one is configured
+        env:
+          KEYSTORE_B64: ${{ secrets.KNOW_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KNOW_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KNOW_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KNOW_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/know.jks"
+            echo "KNOW_KEYSTORE_PATH=$RUNNER_TEMP/know.jks" >> "$GITHUB_ENV"
+            echo "KNOW_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "KNOW_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "KNOW_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+            echo "Signing with the private key"
+          else
+            echo "No private key configured; using the fallback key"
+          fi
+
       - name: Build debug APK
         working-directory: android
         run: gradle assembleDebug --no-daemon

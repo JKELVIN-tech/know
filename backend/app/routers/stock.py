@@ -68,7 +68,7 @@ def create_stock_item(payload: StockItemCreate, request: Request, db: Session = 
         db.add(StockPriceHistory(stock_item_id=item.id, price=item.unit_price))
         db.commit()
     log_activity(db, action="stock_item_created", actor=current_user, target_type="stock_item", target_id=item.id,
-                 detail=f"Added stock item '{item.name}' (qty {item.quantity})", request=request)
+                 detail="Added a stock item", request=request)
     return item
 
 
@@ -146,7 +146,7 @@ def update_stock_item(item_id: int, payload: StockItemUpdate, request: Request, 
         db.add(StockPriceHistory(stock_item_id=item.id, price=item.unit_price))
         db.commit()
     log_activity(db, action="stock_item_updated", actor=current_user, target_type="stock_item", target_id=item.id,
-                 detail=f"Edited stock item '{item.name}'", request=request)
+                 detail="Edited a stock item", request=request)
     return item
 
 
@@ -164,4 +164,4 @@ def delete_stock_item(item_id: int, request: Request, db: Session = Depends(get_
     db.delete(item)
     db.commit()
     log_activity(db, action="stock_item_deleted", actor=current_user, target_type="stock_item", target_id=item_id,
-                 detail=f"Deleted stock item '{item.name}'", request=request)
+                 detail="Deleted a stock item", request=request)

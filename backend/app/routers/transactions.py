@@ -93,7 +93,7 @@ def _check_line(db, current_user, type, category_type, category, amount, stock_i
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="stock_item_id and quantity are required for a stock entry")
         if quantity <= 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="quantity must be greater than 0")
-        stock_item = db.query(StockItem).filter(StockItem.id == stock_item_id, StockItem.institution_id == current_user.institution_id, or_(StockItem.branch_id.is_(None), StockItem.branch_id == current_user.id)).first()
+        stock_item = db.query(StockItem).filter(StockItem.id == stock_item_id, StockItem.institution_id == current_user.institution_id, or_(StockItem.branch_id.is_(None), StockItem.branch_id == current_user.id)).with_for_update().first()
         if not stock_item:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stock item not found")
         category = (category or stock_item.name).strip()
@@ -272,7 +272,7 @@ def create_batch(
         db.refresh(txn)
     total = sum((t.amount for t in created), Decimal("0"))
     log_activity(db, action="transaction_batch_created", actor=current_user, target_type="transaction", target_id=created[0].id,
-                 detail=f"{batch.type.value} of {total} across {len(created)} items", request=request)
+                 detail=f"Recorded {batch.type.value} across {len(created)} items", request=request)
     return created
 
 
@@ -387,7 +387,7 @@ def update_transaction(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Personal accounts don't use stock")
         if new_quantity is None or new_quantity <= 0:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="quantity must be greater than 0")
-        item = db.query(StockItem).filter(StockItem.id == txn.stock_item_id).first()
+        item = db.query(StockItem).filter(StockItem.id == txn.stock_item_id).with_for_update().first()
         if not item:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stock item for this transaction no longer exists")
         _reverse_stock_delta(item, txn.type, txn.quantity)
@@ -426,7 +426,7 @@ def update_transaction(
     if image is not None and image.filename:
         _release_image(db, old_image_path)
     log_activity(db, action="transaction_updated", actor=current_user, target_type="transaction", target_id=txn.id,
-                 detail=f"Updated {txn.type.value} of {txn.amount} ({txn.category})", request=request)
+                 detail=f"Updated a {txn.type.value} entry", request=request)
     return txn
 
 
@@ -449,11 +449,11 @@ def delete_transaction(
         )
 
     if txn.category_type == TransactionCategoryType.STOCK and txn.stock_item_id is not None:
-        item = db.query(StockItem).filter(StockItem.id == txn.stock_item_id).first()
+        item = db.query(StockItem).filter(StockItem.id == txn.stock_item_id).with_for_update().first()
         if item:
             _reverse_stock_delta(item, txn.type, txn.quantity)
 
-    detail = f"Deleted {txn.type.value} of {txn.amount} ({txn.category})"
+    detail = f"Deleted a {txn.type.value} entry"
     image_path = txn.image_path
     db.delete(txn)
     db.commit()
