@@ -75,6 +75,7 @@ fun StockScreen(
     onBack: () -> Unit,
     showBack: Boolean = true,
     onOpenDocuments: () -> Unit = {},
+    onOpenProfit: () -> Unit = {},
     onNewDocument: (String) -> Unit = {},
     onOpenItemDocuments: (Int) -> Unit = {},
     onNewItemDocument: (Int, String) -> Unit = { _, _ -> },
@@ -153,6 +154,9 @@ fun StockScreen(
                     }
                     if (viewModel.isOwner) {
                         SimpleDropdown(label = "Show", options = listOf(ALL_BRANCHES) + state.branches.map { it.name } + NO_BRANCH, selected = state.branchFilter, onSelected = viewModel::setBranchFilter)
+                    }
+                    if (viewModel.isOwner) {
+                        OutlinedButton(onClick = onOpenProfit, modifier = Modifier.fillMaxWidth()) { Text("Daily profit") }
                     }
                     OutlinedButton(onClick = { viewModel.loadExchange(); showExchange = true }, modifier = Modifier.fillMaxWidth()) {
                         Text(if (state.pendingCount > 0) "Exchange stock (${state.pendingCount})" else "Exchange stock")

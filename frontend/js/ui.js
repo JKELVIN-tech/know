@@ -205,6 +205,7 @@ const NAV_ITEMS = {
     { href: "audits.html", nav: "audits", label: "Audits", icon: "audit" },
     { href: "accounts.html", nav: "accounts", label: "Accounts", icon: "accounts" },
     { href: "stock.html", nav: "stock", label: "Stock", icon: "stock" },
+    { href: "profit.html", nav: "profit", label: "Profit", icon: "audit" },
     { href: "settings.html", nav: "settings", label: "Settings", icon: "settings" },
   ],
   super_admin: [

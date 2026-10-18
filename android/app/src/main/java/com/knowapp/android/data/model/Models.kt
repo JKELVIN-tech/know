@@ -400,3 +400,44 @@ data class TransferBody(
     @SerializedName("from_branch_id") val fromBranchId: Int? = null,
     val note: String? = null,
 )
+
+
+data class ProfitTotals(
+    val units: String,
+    val revenue: String,
+    val cost: String,
+    val profit: String,
+    val margin: String? = null,
+    @SerializedName("unknown_units") val unknownUnits: String = "0",
+)
+
+data class ProfitItemOut(
+    @SerializedName("item_id") val itemId: Int?,
+    val name: String,
+    val units: String,
+    val revenue: String,
+    val cost: String,
+    val profit: String,
+    val margin: String? = null,
+    @SerializedName("unknown_units") val unknownUnits: String = "0",
+)
+
+data class ProfitBranchOut(
+    @SerializedName("branch_id") val branchId: Int?,
+    @SerializedName("branch_name") val branchName: String,
+    val totals: ProfitTotals,
+    val items: List<ProfitItemOut> = emptyList(),
+)
+
+data class ProfitDayOut(val day: String, val totals: ProfitTotals, val branches: List<ProfitBranchOut> = emptyList())
+
+data class CostItemOut(
+    @SerializedName("item_id") val itemId: Int,
+    val name: String,
+    @SerializedName("branch_name") val branchName: String? = null,
+    @SerializedName("unit_price") val unitPrice: String? = null,
+    @SerializedName("avg_cost") val avgCost: String? = null,
+    val quantity: String = "0",
+)
+
+data class CostBody(@SerializedName("avg_cost") val avgCost: String)

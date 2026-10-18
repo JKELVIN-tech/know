@@ -265,4 +265,13 @@ interface ApiService {
 
     @POST("/api/exchange/transfers/{transferId}/cancel")
     suspend fun cancelTransfer(@Path("transferId") transferId: Int): Response<com.knowapp.android.data.model.TransferOut>
+
+    @GET("/api/profit/daily")
+    suspend fun profitDaily(@Query("day") day: String, @Query("branch_id") branchId: Int?): Response<com.knowapp.android.data.model.ProfitDayOut>
+
+    @GET("/api/profit/costs")
+    suspend fun profitCosts(): Response<List<com.knowapp.android.data.model.CostItemOut>>
+
+    @PATCH("/api/profit/costs/{itemId}")
+    suspend fun setCost(@Path("itemId") itemId: Int, @Body body: com.knowapp.android.data.model.CostBody): Response<okhttp3.ResponseBody>
 }

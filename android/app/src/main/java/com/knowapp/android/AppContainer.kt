@@ -52,6 +52,7 @@ class AppContainer(context: Context) {
     val productCategoriesRepository = ProductCategoriesRepository(apiService)
     val importsRepository = com.knowapp.android.data.repository.ImportsRepository(apiService)
     val exchangeRepository = com.knowapp.android.data.repository.ExchangeRepository(apiService)
+    val profitRepository = com.knowapp.android.data.repository.ProfitRepository(apiService)
 
     // Text shared into the app from the Messages app, waiting to be detected on the review screen
     val pendingShare = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)

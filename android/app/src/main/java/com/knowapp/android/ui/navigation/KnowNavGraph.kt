@@ -189,6 +189,12 @@ fun KnowNavGraph(container: AppContainer) {
                 onToggleTheme = { makeDark -> container.themeStore.set(if (makeDark) ThemeMode.DARK else ThemeMode.LIGHT) },
             )
         }
+        composable(Routes.PROFIT) {
+            val viewModel: com.knowapp.android.ui.profit.ProfitViewModel = viewModel(
+                factory = vmFactory { com.knowapp.android.ui.profit.ProfitViewModel(container.profitRepository, container.exchangeRepository) },
+            )
+            com.knowapp.android.ui.profit.ProfitScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+        }
         composable(Routes.IMPORTS) {
             val viewModel: com.knowapp.android.ui.imports.ImportsViewModel = viewModel(
                 factory = vmFactory { com.knowapp.android.ui.imports.ImportsViewModel(container.transactionRepository, container.stockRepository, container.detectedStore, container.pendingShare) },
@@ -224,6 +230,7 @@ fun KnowNavGraph(container: AppContainer) {
                 onNewDocument = { type -> navController.navigate(Routes.documentNew(type)) },
                 onOpenItemDocuments = { itemId -> navController.navigate(Routes.documents(itemId)) },
                 onNewItemDocument = { itemId, type -> navController.navigate(Routes.documentNew(type, itemId)) },
+                onOpenProfit = { navController.navigate(Routes.PROFIT) },
             )
         }
         composable(

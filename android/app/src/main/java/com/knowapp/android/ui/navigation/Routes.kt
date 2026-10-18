@@ -10,6 +10,7 @@ object Routes {
     const val STATEMENTS = "statements"
     const val DOCUMENTS = "documents"
     const val IMPORTS = "imports"
+    const val PROFIT = "profit"
     const val OVERVIEW = "overview"
     const val REPORTS = "reports"
     const val DOCUMENTS_PATTERN = "documents?itemId={itemId}"
