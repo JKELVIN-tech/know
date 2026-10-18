@@ -23,6 +23,8 @@ import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import com.knowapp.android.data.DataVersion
+import kotlinx.coroutines.flow.drop
 
 data class StatementRow(
     val date: LocalDate,
@@ -220,6 +222,10 @@ class StatementsViewModel(
             _state.value = _state.value.copy(loading = false, refreshing = true, rows = rowsOf(cached), opening = cached.opening)
             val data = transactions.loadHome()
             _state.value = _state.value.copy(refreshing = false, rows = rowsOf(data), opening = data.opening)
+            DataVersion.flow.drop(1).collect {
+                val fresh = transactions.loadHome()
+                _state.value = _state.value.copy(rows = rowsOf(fresh), opening = fresh.opening)
+            }
         }
     }
 

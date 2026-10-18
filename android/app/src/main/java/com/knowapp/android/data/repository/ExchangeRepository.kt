@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.Response
 import java.io.IOException
+import com.knowapp.android.data.DataVersion
 
 class ExchangeRepository(private val api: ApiService) {
     private val offline = "Couldn't reach the server. Check your connection and try again."
@@ -27,7 +28,7 @@ class ExchangeRepository(private val api: ApiService) {
 
     suspend fun transfers(): Result<List<TransferOut>> = call { api.exchangeTransfers() }
 
-    suspend fun send(body: TransferBody): Result<TransferOut> = call { api.sendTransfer(body) }
+    suspend fun send(body: TransferBody): Result<TransferOut> = call { api.sendTransfer(body) }.also { if (it.isSuccess) DataVersion.bump() }
 
     suspend fun act(id: Int, action: String): Result<TransferOut> = call {
         when (action) {
@@ -35,5 +36,5 @@ class ExchangeRepository(private val api: ApiService) {
             "reject" -> api.rejectTransfer(id)
             else -> api.cancelTransfer(id)
         }
-    }
+    }.also { if (it.isSuccess) DataVersion.bump() }
 }

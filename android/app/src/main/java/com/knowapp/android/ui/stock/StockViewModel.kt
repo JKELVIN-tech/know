@@ -14,6 +14,8 @@ import com.knowapp.android.data.repository.StockResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import com.knowapp.android.data.DataVersion
+import kotlinx.coroutines.flow.drop
 
 const val NEW_CATEGORY = "+ New category…"
 const val ALL_BRANCHES = "All branches (collective)"
@@ -47,6 +49,7 @@ class StockViewModel(
     init {
         refresh()
         loadExchange()
+        viewModelScope.launch { DataVersion.flow.drop(1).collect { refresh(quiet = true); loadExchange() } }
     }
 
     fun setBranchFilter(name: String) {
@@ -89,9 +92,9 @@ class StockViewModel(
         }
     }
 
-    fun refresh() {
+    fun refresh(quiet: Boolean = false) {
         viewModelScope.launch {
-            _state.value = _state.value.copy(loading = true, error = null)
+            if (!quiet) _state.value = _state.value.copy(loading = true, error = null)
             val categories = repository.categories()
             when (val result = repository.list()) {
                 is StockResult.Success -> _state.value = _state.value.copy(loading = false, items = result.items, categories = categories)

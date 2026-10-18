@@ -11,7 +11,7 @@ from app.core.limiter import limiter
 from app.models.message_import import MessageImport
 from app.models.transaction import Transaction, TransactionMethod, TransactionType
 from app.models.user import User, UserRole
-from app.routers.transactions import _check_line
+from app.routers.transactions import _check_line, _sale_cost
 from app.schemas.message_import import ApproveRequest, ImportRequest, ImportResult, MessageImportOut
 from app.utils.ledger import post_transaction
 from app.utils.mpesa_parser import parse_message
@@ -118,6 +118,7 @@ def approve_import(import_id: int, payload: ApproveRequest, request: Request, db
     txn_type = TransactionType.INCOME if row.direction == "in" else TransactionType.EXPENSE
     category, stock_item_id, quantity = _check_line(db, current_user, txn_type, payload.category_type, payload.category, row.amount, payload.stock_item_id, payload.quantity)
     txn = Transaction(
+        cost_total=_sale_cost(db, txn_type, stock_item_id, quantity),
         institution_id=current_user.institution_id,
         type=txn_type,
         method=TransactionMethod.MPESA,

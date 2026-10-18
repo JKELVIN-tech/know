@@ -37,10 +37,31 @@ def _scoped_institution_id(current_user: User, requested_institution_id: int | N
     return requested_institution_id
 
 
-def _apply_stock_delta(item: StockItem, txn_type: TransactionType, quantity: Decimal) -> None:
+def weighted_cost(have: Decimal, have_cost: Decimal | None, add: Decimal, add_cost: Decimal | None) -> Decimal | None:
+    """Running average cost per unit after adding `add` units that cost `add_cost` each."""
+    if add_cost is None:
+        return have_cost
+    if have_cost is None or have <= 0:
+        return add_cost.quantize(Decimal("0.0001"))
+    return ((have * have_cost + add * add_cost) / (have + add)).quantize(Decimal("0.0001"))
+
+
+def _sale_cost(db, txn_type: TransactionType, stock_item_id: int | None, quantity: Decimal | None) -> Decimal | None:
+    """What the units of a stock sale cost right now; null when no cost is known yet."""
+    if txn_type != TransactionType.INCOME or stock_item_id is None or quantity is None:
+        return None
+    item = db.get(StockItem, stock_item_id)
+    if item is None or item.avg_cost is None:
+        return None
+    return (quantity * item.avg_cost).quantize(Decimal("0.01"))
+
+
+def _apply_stock_delta(item: StockItem, txn_type: TransactionType, quantity: Decimal, amount: Decimal | None = None) -> None:
     """A STOCK expense is a restock (adds to inventory); a STOCK income is
     a sale (removes from inventory, and can never go negative)."""
     if txn_type == TransactionType.EXPENSE:
+        if amount is not None and quantity > 0:
+            item.avg_cost = weighted_cost(item.quantity, item.avg_cost, quantity, amount / quantity)
         item.quantity += quantity
     else:
         if item.quantity < quantity:
@@ -76,7 +97,7 @@ def _check_line(db, current_user, type, category_type, category, amount, stock_i
         if not stock_item:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stock item not found")
         category = (category or stock_item.name).strip()
-        _apply_stock_delta(stock_item, type, quantity)
+        _apply_stock_delta(stock_item, type, quantity, amount)
         return category, stock_item_id, quantity
 
     category = (category or "").strip()
@@ -131,6 +152,7 @@ def create_transaction(
         image_path = save_transaction_image(image, contents)
 
     txn = Transaction(
+        cost_total=_sale_cost(db, type, stock_item_id, quantity),
         institution_id=current_user.institution_id,
         type=type,
         method=method,
@@ -219,6 +241,7 @@ def create_batch(
     for line in batch.lines:
         category, stock_item_id, quantity = _check_line(db, current_user, batch.type, line.category_type, line.category, line.amount, line.stock_item_id, line.quantity)
         txn = Transaction(
+            cost_total=_sale_cost(db, batch.type, stock_item_id, quantity),
             institution_id=current_user.institution_id,
             type=batch.type,
             method=batch.method,
@@ -370,6 +393,7 @@ def update_transaction(
         _reverse_stock_delta(item, txn.type, txn.quantity)
         _apply_stock_delta(item, new_type, new_quantity)
         txn.quantity = new_quantity
+        txn.cost_total = _sale_cost(db, new_type, txn.stock_item_id, new_quantity)
 
     if type is not None:
         txn.type = type

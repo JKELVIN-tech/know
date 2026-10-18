@@ -12,6 +12,7 @@ from app.models.stock_item import StockItem
 from app.models.stock_price_history import StockPriceHistory
 from app.models.stock_transfer import StockTransfer
 from app.models.user import StaffType, User, UserRole
+from app.routers.transactions import weighted_cost
 from app.schemas.exchange import BranchOut, TransferCreate, TransferOut
 
 router = APIRouter(prefix="/api/exchange", tags=["exchange"])
@@ -88,7 +89,7 @@ def create_transfer(payload: TransferCreate, request: Request, db: Session = Dep
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Not enough stock: only {source.quantity} of '{source.name}' available")
     source.quantity = source.quantity - payload.quantity
     t = StockTransfer(institution_id=current_user.institution_id, from_branch_id=from_id, to_branch_id=payload.to_branch_id, source_item_id=source.id, item_name=source.name,
-                      category_id=source.category_id, unit_price=source.unit_price, quantity=payload.quantity, status="pending",
+                      category_id=source.category_id, unit_price=source.unit_price, unit_cost=source.avg_cost, quantity=payload.quantity, status="pending",
                       note=(payload.note or "").strip() or None, created_by_id=current_user.id)
     db.add(t)
     db.commit()
@@ -123,6 +124,7 @@ def receive_transfer(transfer_id: int, request: Request, db: Session = Depends(g
         db.flush()
         if dest.unit_price is not None:
             db.add(StockPriceHistory(stock_item_id=dest.id, price=dest.unit_price))
+    dest.avg_cost = weighted_cost(dest.quantity, dest.avg_cost, t.quantity, t.unit_cost)
     dest.quantity = dest.quantity + t.quantity
     t.dest_item_id = dest.id
     _finish(t, current_user, "received")

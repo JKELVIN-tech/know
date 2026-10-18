@@ -6,6 +6,7 @@ import com.knowapp.android.data.network.ApiService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import com.knowapp.android.data.DataVersion
 
 sealed class StockResult {
     data class Success(val items: List<StockItemOut>) : StockResult()
@@ -47,7 +48,7 @@ class StockRepository(private val api: ApiService) {
         }
     }
 
-    suspend fun create(name: String, categoryId: Int, description: String?, unitPrice: Double?, quantity: Double, branchId: Int? = null): Result<StockItemOut> = withContext(Dispatchers.IO) {
+    private suspend fun createRaw(name: String, categoryId: Int, description: String?, unitPrice: Double?, quantity: Double, branchId: Int? = null): Result<StockItemOut> = withContext(Dispatchers.IO) {
         try {
             val body = mapOf<String, Any?>("name" to name, "category_id" to categoryId, "description" to description, "unit_price" to unitPrice, "quantity" to quantity, "branch_id" to branchId)
             val response = api.createStockItem(body)
@@ -59,7 +60,7 @@ class StockRepository(private val api: ApiService) {
         }
     }
 
-    suspend fun update(id: Int, name: String, categoryId: Int, description: String?, unitPrice: Double?, branchId: Int? = null): Result<StockItemOut> = withContext(Dispatchers.IO) {
+    private suspend fun updateRaw(id: Int, name: String, categoryId: Int, description: String?, unitPrice: Double?, branchId: Int? = null): Result<StockItemOut> = withContext(Dispatchers.IO) {
         try {
             val body = mapOf<String, Any?>("name" to name, "category_id" to categoryId, "description" to description, "unit_price" to unitPrice, "branch_id" to branchId)
             val response = api.updateStockItem(id, body)
@@ -71,7 +72,7 @@ class StockRepository(private val api: ApiService) {
         }
     }
 
-    suspend fun delete(id: Int): Result<Unit> = withContext(Dispatchers.IO) {
+    private suspend fun deleteRaw(id: Int): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val response = api.deleteStockItem(id)
             if (response.isSuccessful) Result.success(Unit)
@@ -80,4 +81,10 @@ class StockRepository(private val api: ApiService) {
             Result.failure(Exception(offline))
         }
     }
+
+    suspend fun create(name: String, categoryId: Int, description: String?, unitPrice: Double?, quantity: Double, branchId: Int? = null): Result<StockItemOut> = createRaw(name, categoryId, description, unitPrice, quantity, branchId).also { if (it.isSuccess) DataVersion.bump() }
+
+    suspend fun update(id: Int, name: String, categoryId: Int, description: String?, unitPrice: Double?, branchId: Int? = null): Result<StockItemOut> = updateRaw(id, name, categoryId, description, unitPrice, branchId).also { if (it.isSuccess) DataVersion.bump() }
+
+    suspend fun delete(id: Int): Result<Unit> = deleteRaw(id).also { if (it.isSuccess) DataVersion.bump() }
 }

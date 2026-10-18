@@ -22,6 +22,7 @@ import java.io.File
 import java.io.IOException
 import java.time.Instant
 import java.util.UUID
+import com.knowapp.android.data.DataVersion
 
 sealed class TransactionsResult {
     data class Success(val transactions: List<TransactionOut>) : TransactionsResult()
@@ -181,7 +182,9 @@ class TransactionRepository(
         }
     }
 
-    suspend fun record(draft: NewTransaction): RecordResult = withContext(Dispatchers.IO) {
+    suspend fun record(draft: NewTransaction): RecordResult = recordInner(draft).also { if (it !is RecordResult.Rejected) DataVersion.bump() }
+
+    private suspend fun recordInner(draft: NewTransaction): RecordResult = withContext(Dispatchers.IO) {
         val uid = userId() ?: return@withContext RecordResult.Rejected("You are signed out. Please sign in again.")
         // No connection: keep it on the phone straight away instead of waiting for a timeout
         if (!isOnline()) return@withContext enqueue(uid, draft)
@@ -222,7 +225,9 @@ class TransactionRepository(
     }
 
     // Sends queued entries in order; stops at the first network failure and marks server-rejected ones as failed
-    suspend fun syncPending(): Int = withContext(Dispatchers.IO) {
+    suspend fun syncPending(): Int = syncInner().also { if (it > 0) DataVersion.bump() }
+
+    private suspend fun syncInner(): Int = withContext(Dispatchers.IO) {
         val uid = userId() ?: return@withContext 0
         pendingLock.withLock {
             val queue = store.pending(uid)

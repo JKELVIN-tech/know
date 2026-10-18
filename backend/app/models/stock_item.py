@@ -24,6 +24,8 @@ class StockItem(Base):
     description = Column(Text, nullable=True)
     unit_price = Column(Numeric(12, 2), nullable=True)
     quantity = Column(Numeric(12, 2), nullable=False, default=0)
+    # Running average cost of one unit, built from restocks and transfers; null until a cost is known
+    avg_cost = Column(Numeric(12, 4), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     institution = relationship("Institution", back_populates="stock_items")

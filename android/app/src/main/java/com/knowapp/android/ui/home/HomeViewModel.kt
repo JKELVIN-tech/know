@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
+import com.knowapp.android.data.DataVersion
 
 data class HomeUiState(
     val loading: Boolean = true,
@@ -76,6 +77,7 @@ class HomeViewModel(
                 _state.value = _state.value.copy(institutionName = result.institutions.firstOrNull { it.id == id }?.name)
             }
         }
+        viewModelScope.launch { DataVersion.flow.drop(1).collect { refresh() } }
         // Entries saved offline go to the server as soon as a connection returns
         viewModelScope.launch {
             network.online.drop(1).filter { it }.collect { refresh() }

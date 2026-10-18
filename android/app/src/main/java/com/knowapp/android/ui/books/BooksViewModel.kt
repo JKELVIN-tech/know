@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
+import com.knowapp.android.data.DataVersion
+import kotlinx.coroutines.flow.drop
 
 enum class BooksPeriod(val label: String) {
     THIS_MONTH("This month"),
@@ -52,6 +54,7 @@ class BooksViewModel(private val repository: BooksRepository, private val audits
             repository.staff().onSuccess { _state.value = _state.value.copy(staff = it) }
             load()
         }
+        viewModelScope.launch { DataVersion.flow.drop(1).collect { load() } }
     }
 
     private fun bounds(period: BooksPeriod): Pair<String?, String?> {

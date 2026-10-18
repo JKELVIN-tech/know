@@ -16,6 +16,7 @@ class StockTransfer(Base):
     item_name = Column(String(150), nullable=False)
     category_id = Column(Integer, ForeignKey("product_categories.id"), nullable=True)
     unit_price = Column(Numeric(12, 2), nullable=True)
+    unit_cost = Column(Numeric(12, 4), nullable=True)
     quantity = Column(Numeric(12, 2), nullable=False)
     status = Column(String(12), nullable=False, default="pending", index=True)
     note = Column(String(200), nullable=True)

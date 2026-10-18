@@ -145,6 +145,7 @@ async function rawFetch(path, { method = "GET", body, isForm = false } = {}) {
 const SWR_PREFIX = "know_swr:";
 const SWR_MAX_AGE = 7 * 24 * 3600 * 1000;
 const swrInFlight = new Set();
+let swrEpoch = 0;
 
 function swrAllowed(path) {
   return !path.startsWith("/api/auth") && !path.includes("download") && !path.includes("pdf") && !path.includes("export") && !path.includes("/vault");
@@ -169,6 +170,7 @@ function swrWrite(key, data) {
 }
 
 function swrClear() {
+  swrEpoch += 1;
   try {
     Object.keys(localStorage).filter((k) => k.startsWith(SWR_PREFIX)).forEach((k) => localStorage.removeItem(k));
   } catch { /* storage blocked */ }
@@ -177,8 +179,10 @@ function swrClear() {
 async function swrRefresh(path, key, before) {
   if (swrInFlight.has(key)) return;
   swrInFlight.add(key);
+  const epoch = swrEpoch;
   try {
     const fresh = await rawFetch(path);
+    if (epoch !== swrEpoch) return;
     if (JSON.stringify(fresh) !== JSON.stringify(before)) {
       swrWrite(key, fresh);
       window.dispatchEvent(new CustomEvent("know:fresh", { detail: { path } }));
@@ -206,8 +210,9 @@ async function apiFetch(path, options = {}) {
     swrRefresh(path, key, hit.d);
     return hit.d;
   }
+  const epoch = swrEpoch;
   const data = await rawFetch(path, options);
-  swrWrite(key, data);
+  if (epoch === swrEpoch) swrWrite(key, data);
   return data;
 }
 

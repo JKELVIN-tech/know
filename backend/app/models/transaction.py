@@ -54,6 +54,8 @@ class Transaction(Base):
     # a STOCK income subtracts it (a sale).
     stock_item_id = Column(Integer, ForeignKey("stock_items.id", ondelete="SET NULL"), nullable=True)
     quantity = Column(Numeric(12, 2), nullable=True)
+    # For a stock sale: what the units cost when they were sold, fixed at that moment so later cost changes never rewrite history
+    cost_total = Column(Numeric(12, 2), nullable=True)
 
     # Populated when a staff member pastes an M-Pesa confirmation message —
     # parsed client-request, not verified against Safaricom directly, but
