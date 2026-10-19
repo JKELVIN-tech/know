@@ -29,10 +29,23 @@ private val AMBIGUOUS = setOf('0', 'O', 'o', '1', 'l', 'I')
 private const val PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
 
 // A temporary password that is easy to read out over the phone: no look-alike characters, always a letter and a digit
-fun generatePassword(length: Int = 10): String {
+fun generatePassword(length: Int = 14): String {
     val random = java.security.SecureRandom()
-    while (true) {
-        val candidate = (1..length).map { PASSWORD_CHARS[random.nextInt(PASSWORD_CHARS.length)] }.joinToString("")
-        if (candidate.any { it.isDigit() } && candidate.any { it.isLetter() } && candidate.none { it in AMBIGUOUS }) return candidate
-    }
+    val upper = "ABCDEFGHJKLMNPQRSTUVWXYZ"
+    val lower = "abcdefghijkmnopqrstuvwxyz"
+    val digits = "23456789"
+    val symbols = "!#$%&*?@"
+    val all = upper + lower + digits + symbols
+    val chars = mutableListOf(upper[random.nextInt(upper.length)], lower[random.nextInt(lower.length)], digits[random.nextInt(digits.length)], symbols[random.nextInt(symbols.length)])
+    while (chars.size < length) chars.add(all[random.nextInt(all.length)])
+    chars.shuffle(random)
+    return chars.joinToString("")
 }
+
+// The same rule the server enforces: 10+ characters with an uppercase letter, a lowercase letter, a number and a symbol
+fun isStrongPassword(p: String): Boolean {
+    val v = p.trim()
+    return v.length >= 10 && v.any { it in 'A'..'Z' } && v.any { it in 'a'..'z' } && v.any { it in '0'..'9' } && v.any { !it.isLetterOrDigit() && !it.isWhitespace() }
+}
+
+const val PASSWORD_RULE_HINT = "At least 10 characters with an uppercase letter, a lowercase letter, a number and a symbol"

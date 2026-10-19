@@ -70,6 +70,8 @@ import com.knowapp.android.ui.theme.DisplayFontFamily
 import com.knowapp.android.ui.theme.IncomeGreen
 import com.knowapp.android.ui.theme.PillShape
 import com.knowapp.android.ui.theme.SmallRadius
+import com.knowapp.android.ui.components.PASSWORD_RULE_HINT
+import com.knowapp.android.ui.components.isStrongPassword
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -199,7 +201,7 @@ fun AccountsScreen(
             submitting = state.isSubmitting,
             error = state.submitError,
             onDismiss = { creating = false },
-            onSubmit = { u, n, p, r, t, i, result -> viewModel.create(u, n, p, r, t, i, result) },
+            onSubmit = { u, n, p, r, t, i, e, result -> viewModel.create(u, n, p, r, t, i, e, result) },
         )
     }
 
@@ -339,11 +341,11 @@ private fun ResetPasswordSheet(user: UserOut, onDismiss: () -> Unit, onReset: (S
                 OutlinedButton(onClick = onDismiss, shape = PillShape, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Done") }
             } else {
                 Text("Choose a new temporary password for ${user.fullName}. They'll be signed out of other devices.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("New password") }, supportingText = { Text("At least 8 characters") }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password), modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
+                OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("New password") }, supportingText = { Text(PASSWORD_RULE_HINT) }, singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password), modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
                 TextButton(onClick = { password = generatePassword() }) { Text("Generate a new password") }
                 Button(
                     onClick = { busy = true; password = password.trim(); onReset(password) { ok -> busy = false; if (ok) done = true } },
-                    enabled = !busy && password.trim().length >= 8,
+                    enabled = !busy && isStrongPassword(password),
                     shape = PillShape,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                 ) { Text(if (busy) "Resetting…" else "Reset password", fontWeight = FontWeight.Bold) }

@@ -1,4 +1,4 @@
-const CACHE = "know-v23";
+const CACHE = "know-v24";
 const ASSETS = [
   "./",
   "./index.html",
@@ -8,6 +8,11 @@ const ASSETS = [
   "./books.html",
   "./imports.html",
   "./audits.html",
+  "./forgot-password.html",
+  "./reset-password.html",
+  "./js/password-rules.js",
+  "./js/forgot.js",
+  "./js/reset.js",
   "./profit.html",
   "./js/profit.js",
   "./js/boot.js",

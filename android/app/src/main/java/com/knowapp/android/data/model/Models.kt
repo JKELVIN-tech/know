@@ -107,6 +107,7 @@ data class UserOut(
     @SerializedName("created_at") val createdAt: String,
     val bio: String? = null,
     @SerializedName("avatar_path") val avatarPath: String? = null,
+    val email: String? = null,
 )
 
 data class CategoryInsightOut(

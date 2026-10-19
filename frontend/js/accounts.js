@@ -59,7 +59,7 @@
     body.innerHTML = shown.length ? shown.map((u) => `
       <tr>
         <td><strong>${escapeHtml(u.full_name)}</strong></td>
-        <td><code>${escapeHtml(u.username)}</code></td>
+        <td><code>${escapeHtml(u.username)}</code>${u.email ? `<br><small class="muted">${escapeHtml(u.email)}</small>` : ""}</td>
         <td><span class="badge badge-${u.role}">${roleLabel(u.role)}${u.role === "staff" && u.staff_type === "teacher" ? " · Personal" : ""}</span></td>
         <td>${u.role !== "super_admin" ? escapeHtml(u.institution_name || "—") : "—"}</td>
         <td><span class="badge badge-${u.is_active ? "active" : "inactive"}">${u.is_active ? "Active" : "Deactivated"}</span></td>
@@ -67,7 +67,8 @@
         <td>
           <div class="row-actions">
             <button class="ghost-btn" data-edit="${u.id}">Edit</button>
-            <button class="ghost-btn" data-reset="${u.id}">Reset password</button>
+            <button class="ghost-btn" data-reset="${u.id}">Set password</button>
+            ${u.email && u.is_active && u.role !== "super_admin" ? `<button class="ghost-btn" data-sendlink="${u.id}">Email reset link</button>` : ""}
             ${u.id === session.user_id ? "" : (u.is_active
               ? `<button class="danger-btn" data-deactivate="${u.id}">Deactivate</button>`
               : `<button class="ghost-btn" data-reactivate="${u.id}">Reactivate</button>`)}
@@ -86,6 +87,19 @@
       catch (err) { toast(err.message); }
     }));
     $$("[data-reset]", body).forEach((btn) => btn.addEventListener("click", () => openResetSheet(btn.dataset.reset)));
+    $$("[data-sendlink]", body).forEach((btn) => btn.addEventListener("click", async () => {
+      const u = users.find((x) => String(x.id) === btn.dataset.sendlink);
+      if (!u || !confirm(`Email a password reset link to ${u.full_name}? It works once and expires in 30 minutes.`)) return;
+      btn.disabled = true;
+      try {
+        await Api.users.sendResetLink(u.id);
+        toast(`Reset link sent to ${u.email}.`);
+      } catch (err) {
+        toast(err.message || "Could not send the link.");
+      } finally {
+        btn.disabled = false;
+      }
+    }));
     $$("[data-edit]", body).forEach((btn) => btn.addEventListener("click", () => openEditSheet(btn.dataset.edit)));
   }
 
@@ -108,6 +122,7 @@
       <form id="editForm">
         <label class="field"><span>Full name</span><input type="text" id="editFullname" value="${escapeHtml(user.full_name)}" required /></label>
         <label class="field"><span>Username</span><input type="text" id="editUsername" value="${escapeHtml(user.username)}" required /></label>
+        <label class="field"><span>Email (for password reset links)</span><input type="email" id="editEmail" value="${escapeHtml(user.email || "")}" autocomplete="off" /></label>
         <label class="field"><span>Account type</span>
           <select id="editRole">
             <option value="staff" ${user.role === "staff" ? "selected" : ""}>Staff</option>
@@ -145,6 +160,7 @@
           full_name: $("#editFullname").value.trim(),
           username: $("#editUsername").value.trim(),
           role,
+          email: $("#editEmail").value.trim(),
         };
         if (role === "staff") payload.staff_type = $("#editStaffType").value;
         if (isSuperAdmin) payload.institution_id = parseInt($("#editSchool").value, 10);
@@ -195,8 +211,11 @@
         </label>
         <label class="field"><span>Full name</span><input type="text" id="userFullname" required /></label>
         <label class="field"><span>Username</span><input type="text" id="userUsername" required /></label>
-        <label class="field"><span>Temporary password</span><input type="text" id="userPassword" required minlength="8" /></label>
-        <p class="file-hint">Share this with them directly. A new one can be issued anytime from Reset password.</p>
+        <label class="field"><span>Email (optional, used for password reset links)</span><input type="email" id="userEmail" autocomplete="off" /></label>
+        <label class="field"><span>Temporary password</span><input type="text" id="userPassword" required minlength="10" /></label>
+        <ul class="pw-rules" id="userPwRules"></ul>
+        <button type="button" class="ghost-btn" id="userPwGen">Generate a strong password</button>
+        <p class="file-hint">Share this with them directly, or add an email and they can choose their own with Forgot password.</p>
         ${isSuperAdmin ? `<label class="field" id="userSchoolField"><span>Institution</span><select id="userSchool">${institutionOptions}</select></label>` : ""}
       </form>
       <div class="form-actions">
@@ -230,6 +249,10 @@
     $("#userRole").addEventListener("change", applyRoleFieldVisibility);
     applyRoleFieldVisibility();
 
+    PasswordRules.attach($("#userPassword"), $("#userPwRules"), () => $("#userUsername").value.trim());
+    $("#userUsername").addEventListener("input", () => $("#userPassword").dispatchEvent(new Event("input")));
+    $("#userPwGen").addEventListener("click", () => { $("#userPassword").value = PasswordRules.generate(); $("#userPassword").dispatchEvent(new Event("input")); });
+
     $("#userForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const msg = $("#userMsg");
@@ -246,6 +269,7 @@
           password: $("#userPassword").value,
           role,
         };
+        if ($("#userEmail").value.trim()) payload.email = $("#userEmail").value.trim();
         if (role === "staff") payload.staff_type = $("#userStaffType").value;
         if (role !== "super_admin" && isSuperAdmin) payload.institution_id = parseInt($("#userSchool").value, 10);
         // institution_admin actors never send institution_id — the backend
@@ -268,12 +292,17 @@
     Sheet.open("Reset password", `
       <p class="form-error" id="resetMsg"></p>
       <form id="resetForm">
-        <label class="field"><span>New password</span><input type="text" id="resetPassword" required minlength="8" /></label>
+        <label class="field"><span>New password</span><input type="text" id="resetPassword" required minlength="10" /></label>
+        <ul class="pw-rules" id="resetPwRules"></ul>
+        <button type="button" class="ghost-btn" id="resetPwGen">Generate a strong password</button>
         <div class="form-actions">
           <button type="submit" class="primary-btn" id="resetSubmit">Set new password</button>
         </div>
       </form>
     `);
+
+    PasswordRules.attach($("#resetPassword"), $("#resetPwRules"));
+    $("#resetPwGen").addEventListener("click", () => { $("#resetPassword").value = PasswordRules.generate(); $("#resetPassword").dispatchEvent(new Event("input")); });
 
     $("#resetForm").addEventListener("submit", async (e) => {
       e.preventDefault();

@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     EMAIL_PROVIDER: str = ""
     EMAIL_API_KEY: str = ""
     EMAIL_FROM: str = ""
-    FRONTEND_URL: str = "http://localhost:5500"
+    FRONTEND_URL: str = ""
     PASSWORD_RESET_MINUTES: int = 30
     MAX_REQUEST_BYTES: int = 12 * 1024 * 1024
 
@@ -60,6 +60,14 @@ class Settings(BaseSettings):
     # registrable domains) needs SameSite=none plus Secure=true.
     COOKIE_SECURE: bool = True
     COOKIE_SAMESITE: str = "lax"
+
+    @property
+    def frontend_base(self) -> str:
+        """Where the website lives: FRONTEND_URL if set, otherwise the first public origin allowed to call the API."""
+        if self.FRONTEND_URL.strip():
+            return self.FRONTEND_URL.strip().rstrip("/")
+        public = [o for o in self.cors_origins_list if o.startswith("https://")]
+        return (public or self.cors_origins_list or ["http://localhost:5500"])[0].rstrip("/")
 
     @property
     def cors_origins_list(self) -> list[str]:

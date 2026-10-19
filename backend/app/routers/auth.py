@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from fastapi.responses import RedirectResponse
 from fastapi import BackgroundTasks, Header, APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
@@ -159,6 +160,12 @@ def logout(response: Response):
     """
     response.delete_cookie(ACCESS_TOKEN_COOKIE, path="/")
     response.delete_cookie(CSRF_COOKIE, path="/")
+
+
+@router.get("/forgot-redirect", include_in_schema=False)
+def forgot_redirect():
+    """Lets the Android app open the website's forgot-password page without knowing the website's address."""
+    return RedirectResponse(f"{settings.frontend_base}/forgot-password.html", status_code=302)
 
 
 FORGOT_REPLY = {"message": "If an account matches and has an email address, a reset link is on its way. It works once and expires soon."}

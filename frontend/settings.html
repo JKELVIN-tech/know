@@ -80,7 +80,8 @@
               <p class="form-error" id="pwMsg"></p>
               <form id="pwForm">
                 <label class="field"><span>Current password</span><input type="password" id="pwCurrent" required autocomplete="current-password" /></label>
-                <label class="field"><span>New password</span><input type="password" id="pwNew" required minlength="8" autocomplete="new-password" /></label>
+                <label class="field"><span>New password</span><input type="password" id="pwNew" required minlength="10" autocomplete="new-password" /></label>
+                <ul class="pw-rules" id="pwRules"></ul>
                 <p class="hint">At least 8 characters. You'll be logged out and asked to sign back in afterward.</p>
                 <div class="form-actions">
                   <button type="submit" class="primary-btn" id="pwSubmit">Update password</button>
@@ -126,7 +127,17 @@
               </a>
             </div>
           </div>
-                <div class="card" id="vaultCard" hidden>
+                        <div class="card">
+          <div class="card-head"><h2>Password reset email</h2></div>
+          <p class="subtle">The address where your reset link is sent if you forget your password. Current: <strong id="myEmail">none</strong></p>
+          <form id="emailForm">
+            <label class="field"><span>Email address (leave empty to remove)</span><input type="email" id="emailNew" autocomplete="email" /></label>
+            <label class="field"><span>Current password</span><input type="password" id="emailPw" required autocomplete="current-password" /></label>
+            <p class="form-message" id="emailMsg" hidden></p>
+            <div class="head-actions"><button type="submit" class="primary-btn" id="emailSubmit">Save email</button></div>
+          </form>
+        </div>
+        <div class="card" id="vaultCard" hidden>
           <div class="card-head"><h2>Vault</h2><span class="subtle">Encrypted backup</span></div>
           <p class="subtle">Download an encrypted copy of your transactions, ledger, stock, audits and document records. It is locked with a password only you know. We never store the file or the password, and photos are not included. If the password is lost, the backup cannot be opened.</p>
           <label class="field"><span>Backup password (at least 10 characters)</span><input type="password" id="vaultPass" autocomplete="new-password" /></label>
@@ -146,6 +157,7 @@
 
     <script src="config.js"></script>
     <script src="./js/api.js"></script>
+    <script src="./js/password-rules.js"></script>
     <script src="./js/ui.js"></script>
     <script src="./js/settings.js"></script>
   </body>

@@ -33,6 +33,7 @@ class UsersRepository(private val api: ApiService) {
         role: String,
         staffType: String?,
         institutionId: Int?,
+        email: String = "",
     ): UserActionResult = withContext(Dispatchers.IO) {
         try {
             val response = api.createUser(
@@ -40,6 +41,7 @@ class UsersRepository(private val api: ApiService) {
                     "username" to username,
                     "full_name" to fullName,
                     "password" to password,
+                    "email" to email.ifBlank { null },
                     "role" to role,
                     "staff_type" to staffType,
                     "institution_id" to institutionId?.toString(),

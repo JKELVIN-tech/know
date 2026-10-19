@@ -160,6 +160,11 @@ fun LoginScreen(
                 }
             }
 
+            val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+            androidx.compose.material3.TextButton(onClick = { uriHandler.openUri(com.knowapp.android.BuildConfig.API_BASE_URL + "/api/auth/forgot-redirect") }) {
+                Text("Forgot password?")
+            }
+
             Text(
                 text = "Accounts are provisioned by a super admin. There's no self-service signup.",
                 style = MaterialTheme.typography.bodySmall,

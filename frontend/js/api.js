@@ -135,7 +135,8 @@ async function rawFetch(path, { method = "GET", body, isForm = false } = {}) {
 
   if (!res.ok) {
     const detail = typeof data === "object" && data?.detail ? data.detail : "Something went wrong.";
-    throw new ApiError(typeof detail === "string" ? detail : JSON.stringify(detail), res.status);
+    const readable = Array.isArray(detail) ? detail.map((d) => String(d.msg || d).replace(/^Value error,\s*/, "")).join(". ") : detail;
+    throw new ApiError(typeof readable === "string" ? readable : JSON.stringify(readable), res.status);
   }
 
   return data;
@@ -303,6 +304,8 @@ const Api = {
     update: (id, payload) => apiFetch(`/api/users/${id}`, { method: "PATCH", body: payload }),
     deactivate: (id) => apiFetch(`/api/users/${id}/deactivate`, { method: "PATCH" }),
     reactivate: (id) => apiFetch(`/api/users/${id}/reactivate`, { method: "PATCH" }),
+    sendResetLink: (id) => apiFetch(`/api/users/${id}/send-reset-link`, { method: "POST" }),
+    setMyEmail: (email, current_password) => apiFetch("/api/users/me/email", { method: "POST", body: { email, current_password } }),
     resetPassword: (id, new_password) => apiFetch(`/api/users/${id}/reset-password`, { method: "POST", body: { new_password } }),
   },
 
@@ -344,6 +347,9 @@ const Api = {
      * M-Pesa message" result, not an error. */
     parse: (message) => apiFetch("/api/mpesa/parse", { method: "POST", body: { message } }),
   },
+
+  forgotPassword: (identifier) => apiFetch("/api/auth/forgot-password", { method: "POST", body: { identifier } }),
+  resetPassword: (token, new_password) => apiFetch("/api/auth/reset-password", { method: "POST", body: { token, new_password } }),
 
   storage: () => apiFetch("/api/admin/storage-usage"),
 

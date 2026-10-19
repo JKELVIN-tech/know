@@ -33,7 +33,7 @@ def issue_token(db: Session, user: User, ip: str | None) -> str:
 
 def reset_link(token: str) -> str:
     # The token sits after the # so it is never sent to a server, written to a log or passed on in a Referer header
-    return f"{settings.FRONTEND_URL.rstrip('/')}/reset-password.html#token={token}"
+    return f"{settings.frontend_base}/reset-password.html#token={token}"
 
 
 def send_reset_email(to: str, full_name: str, username: str, token: str) -> bool:

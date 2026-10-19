@@ -40,6 +40,8 @@ import com.knowapp.android.ui.theme.DisplayFontFamily
 import com.knowapp.android.ui.theme.IncomeGreen
 import com.knowapp.android.ui.theme.PillShape
 import com.knowapp.android.ui.theme.SmallRadius
+import com.knowapp.android.ui.components.PASSWORD_RULE_HINT
+import com.knowapp.android.ui.components.isStrongPassword
 
 val ROLE_LABELS = mapOf("staff" to "Staff", "institution_admin" to "Owner", "super_admin" to "Super admin")
 
@@ -54,13 +56,14 @@ fun CreateAccountSheet(
     submitting: Boolean,
     error: String?,
     onDismiss: () -> Unit,
-    onSubmit: (username: String, fullName: String, password: String, role: String, staffType: String?, institutionId: Int?, onResult: (Boolean) -> Unit) -> Unit,
+    onSubmit: (username: String, fullName: String, password: String, role: String, staffType: String?, institutionId: Int?, email: String, onResult: (Boolean) -> Unit) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val clipboard = LocalClipboardManager.current
     var fullName by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf(generatePassword()) }
+    var email by remember { mutableStateOf("") }
     var role by remember { mutableStateOf(roleOptions.first()) }
     var staffType by remember { mutableStateOf("general") }
     var institutionName by remember { mutableStateOf(institutions.firstOrNull { it.first == fixedInstitutionId }?.second ?: "") }
@@ -68,7 +71,7 @@ fun CreateAccountSheet(
 
     val chosenInstitution = fixedInstitutionId ?: institutions.firstOrNull { it.second == institutionName }?.first
     val needsInstitution = role != "super_admin" && fixedInstitutionId == null && institutions.isNotEmpty()
-    val canSubmit = username.trim().length >= 3 && fullName.isNotBlank() && password.trim().length >= 8 && (!needsInstitution || chosenInstitution != null)
+    val canSubmit = username.trim().length >= 3 && fullName.isNotBlank() && isStrongPassword(password) && (!needsInstitution || chosenInstitution != null)
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = MaterialTheme.colorScheme.surface) {
         Column(
@@ -111,11 +114,12 @@ fun CreateAccountSheet(
                 if (needsInstitution) {
                     SimpleDropdown("Institution", institutions.map { it.second }, institutionName, { institutionName = it })
                 }
+                OutlinedTextField(value = email, onValueChange = { email = it.trim() }, label = { Text("Email (optional)") }, supportingText = { Text("Lets them reset their own password with a link") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
                     label = { Text("Temporary password") },
-                    supportingText = { Text("At least 8 characters. They can change it after signing in") },
+                    supportingText = { Text("$PASSWORD_RULE_HINT. They can change it after signing in") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier = Modifier.fillMaxWidth(),
@@ -127,7 +131,7 @@ fun CreateAccountSheet(
                 }
                 Button(
                     onClick = {
-                        onSubmit(username.trim(), fullName.trim(), password.trim(), role, if (role == "staff") staffType else null, chosenInstitution) { ok ->
+                        onSubmit(username.trim(), fullName.trim(), password.trim(), role, if (role == "staff") staffType else null, chosenInstitution, email) { ok ->
                             if (ok) created = username.trim() to password.trim()
                         }
                     },

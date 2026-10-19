@@ -126,6 +126,30 @@
 
   $("#logoutBtn").addEventListener("click", logout);
 
+  PasswordRules.attach($("#pwNew"), $("#pwRules"), () => session.username || "");
+
+  try {
+    const me = await Api.users.me();
+    $("#myEmail").textContent = me.email || "none";
+    $("#emailNew").value = me.email || "";
+  } catch { /* shown as none */ }
+  $("#emailForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = $("#emailMsg");
+    hideFormMessage(msg);
+    $("#emailSubmit").disabled = true;
+    try {
+      const me = await Api.users.setMyEmail($("#emailNew").value.trim(), $("#emailPw").value);
+      $("#myEmail").textContent = me.email || "none";
+      $("#emailPw").value = "";
+      showFormMessage(msg, me.email ? "Email saved." : "Email removed.", false);
+    } catch (err) {
+      showFormMessage(msg, err.message || "Could not save the email.");
+    } finally {
+      $("#emailSubmit").disabled = false;
+    }
+  });
+
   $("#pwForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const msg = $("#pwMsg");
