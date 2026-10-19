@@ -105,11 +105,12 @@ class InstitutionsViewModel(
         role: String,
         staffType: String?,
         institutionId: Int?,
+        email: String,
         onDone: (Boolean) -> Unit,
     ) {
         uiState = uiState.copy(isSubmitting = true, submitError = null)
         viewModelScope.launch {
-            when (val result = usersRepository.create(username, fullName, password, role, staffType, institutionId)) {
+            when (val result = usersRepository.create(username, fullName, password, role, staffType, institutionId, email)) {
                 is UserActionResult.Success -> {
                     uiState = uiState.copy(isSubmitting = false)
                     refresh()
