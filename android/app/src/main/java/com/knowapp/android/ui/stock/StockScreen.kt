@@ -155,6 +155,9 @@ fun StockScreen(
                     if (viewModel.isOwner) {
                         SimpleDropdown(label = "Show", options = listOf(ALL_BRANCHES) + state.branches.map { it.name } + NO_BRANCH, selected = state.branchFilter, onSelected = viewModel::setBranchFilter)
                     }
+                    if (viewModel.isOwner && state.items.any { it.branchId == null }) {
+                        Text("${state.items.count { it.branchId == null }} item(s) are not assigned to a branch yet, so every branch can see them. Edit an item to assign it.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     if (viewModel.isOwner) {
                         OutlinedButton(onClick = onOpenProfit, modifier = Modifier.fillMaxWidth()) { Text("Daily profit") }
                     }
@@ -365,6 +368,10 @@ private fun StockForm(
 }
 
 
+private const val POOL_LABEL = "Unassigned (shared stock)"
+
+private fun plain(q: String): String = q.toDoubleOrNull()?.let { if (it % 1.0 == 0.0) it.toLong().toString() else it.toString() } ?: q
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ExchangeSheet(
@@ -381,13 +388,40 @@ private fun ExchangeSheet(
     var toName by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
+    var confirming by remember { mutableStateOf(false) }
 
-    val fromId = if (isOwner) state.branches.firstOrNull { it.name == fromName }?.id ?: state.branches.firstOrNull()?.id else meId
-    val mine = state.items.filter { it.branchId == fromId }
-    val labels = mine.associateBy { "${it.name} (${it.quantity} in stock)" }
+    val hasPool = state.items.any { it.branchId == null }
+    val poolPicked = isOwner && fromName == POOL_LABEL
+    val fromId: Int? = if (isOwner) (if (poolPicked) null else state.branches.firstOrNull { it.name == fromName }?.id ?: state.branches.firstOrNull()?.id) else meId
+    val mine = state.items.filter { if (isOwner) (if (poolPicked) it.branchId == null else it.branchId == fromId) else (it.branchId == meId || it.branchId == null) }
+    val labels = mine.associateBy { "${it.name}${if (it.branchId == null) " (shared)" else ""} \u2014 ${plain(it.quantity)} in stock" }
     val chosenItem = labels[itemLabel] ?: mine.firstOrNull()
     val targets = state.branches.filter { it.id != fromId }
     val chosenTo = targets.firstOrNull { it.name == toName } ?: targets.firstOrNull()
+    val fromText = if (isOwner) (if (poolPicked) "the shared stock" else state.branches.firstOrNull { it.id == fromId }?.name ?: "") else "your stock"
+    val qty = quantity.toDoubleOrNull() ?: 0.0
+    val available = chosenItem?.quantity?.toDoubleOrNull() ?: 0.0
+    val summary = when {
+        chosenItem == null || chosenTo == null -> "Choose what to send and who receives it."
+        qty <= 0.0 -> "Sending ${chosenItem.name} from $fromText to ${chosenTo.name}. Enter a quantity."
+        qty > available -> "Sending ${plain(quantity)} \u00D7 ${chosenItem.name} to ${chosenTo.name}. Only ${plain(chosenItem.quantity)} available."
+        else -> "Sending ${plain(quantity)} \u00D7 ${chosenItem.name} from $fromText to ${chosenTo.name}. ${plain((available - qty).toString())} will be left."
+    }
+
+    if (confirming && chosenItem != null && chosenTo != null) {
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text("Send this stock?") },
+            text = { Text(summary) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirming = false
+                    onSend(if (isOwner) fromId else null, chosenItem.id, quantity, chosenTo.id, note) { ok -> if (ok) { quantity = ""; note = "" } }
+                }) { Text("Send") }
+            },
+            dismissButton = { TextButton(onClick = { confirming = false }) { Text("Cancel") } },
+        )
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -399,10 +433,10 @@ private fun ExchangeSheet(
                 Text(if (isOwner) "Add branch accounts first." else "There are no other branches to exchange with.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 if (isOwner) {
-                    SimpleDropdown(label = "From branch", options = state.branches.map { it.name }, selected = state.branches.firstOrNull { it.id == fromId }?.name ?: "", onSelected = { fromName = it; itemLabel = "" })
+                    SimpleDropdown(label = "Take the stock from", options = state.branches.map { it.name } + (if (hasPool) listOf(POOL_LABEL) else emptyList()), selected = if (poolPicked) POOL_LABEL else state.branches.firstOrNull { it.id == fromId }?.name ?: "", onSelected = { fromName = it; itemLabel = "" })
                 }
                 if (labels.isEmpty()) {
-                    Text("This branch has no stock to send.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("There is no stock to send here. Add stock first, or ask your owner to assign shared stock to a branch.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     SimpleDropdown(label = "Item", options = labels.keys.toList(), selected = labels.entries.firstOrNull { it.value == chosenItem }?.key ?: "", onSelected = { itemLabel = it })
                 }
@@ -412,30 +446,27 @@ private fun ExchangeSheet(
                 )
                 SimpleDropdown(label = "Send to", options = targets.map { it.name }, selected = chosenTo?.name ?: "", onSelected = { toName = it })
                 OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Note (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
+                Text(summary, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = if (qty > available && chosenItem != null) DangerRed else MaterialTheme.colorScheme.onSurface)
                 Text(
                     "The quantity leaves the sending branch now and reaches the other branch when they confirm it. It is not a sale or a purchase, so income and expenses don't change.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Button(
-                    enabled = !state.exchangeBusy && chosenItem != null && chosenTo != null,
-                    onClick = { onSend(if (isOwner) fromId else null, chosenItem!!.id, quantity, chosenTo!!.id, note) { ok -> if (ok) { quantity = ""; note = "" } } },
+                    enabled = !state.exchangeBusy && chosenItem != null && chosenTo != null && qty > 0.0 && qty <= available,
+                    onClick = { confirming = true },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("Send stock") }
             }
             Text("Transfers", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             if (state.transfers.isEmpty()) Text("No transfers yet.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             state.transfers.forEach { t ->
-                val who = when (t.direction) {
-                    "incoming" -> "from ${t.fromBranchName}"
-                    "outgoing" -> "to ${t.toBranchName}"
-                    else -> "${t.fromBranchName} \u2192 ${t.toBranchName}"
-                }
                 Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("${t.itemName} \u00D7 ${t.quantity}", fontWeight = FontWeight.SemiBold)
-                    Text(who + (t.note?.let { " \u00B7 $it" } ?: ""), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${plain(t.quantity)} \u00D7 ${t.itemName}", fontWeight = FontWeight.Bold)
+                    Text("From ${t.fromBranchName} \u2192 to ${t.toBranchName}" + (t.note?.let { " \u00B7 $it" } ?: ""), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     if (t.status != "pending") {
-                        Text(t.status.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodySmall)
+                        Text(t.status.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                     } else {
+                        Text(if (t.direction == "incoming") "Waiting for you to confirm" else "Waiting for ${t.toBranchName} to confirm", style = MaterialTheme.typography.bodySmall, color = if (t.direction == "incoming") DangerRed else MaterialTheme.colorScheme.onSurfaceVariant)
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             if (t.direction == "incoming" || isOwner) {
                                 TextButton(enabled = !state.exchangeBusy, onClick = { onAct(t.id, "receive") }) { Text("Receive") }

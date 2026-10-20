@@ -85,6 +85,9 @@
 
   function renderItems() {
     const body = $("#stockBody");
+    const loose = items.filter((s) => s.branch_id == null).length;
+    $("#unassignedNote").hidden = !(isOwner && loose);
+    $("#unassignedNote").textContent = `${loose} item${loose === 1 ? " is" : "s are"} not assigned to a branch yet, so every branch can see ${loose === 1 ? "it" : "them"}. Edit an item to assign it to a branch.`;
     const pick = isOwner ? $("#branchFilter").value : "";
     const visible = items.filter((s) => (pick === "" ? true : pick === "none" ? s.branch_id == null : String(s.branch_id) === pick));
     body.innerHTML = visible.length ? visible.map((s) => `
@@ -265,11 +268,12 @@
     Sheet.open("Exchange stock", `
       <p class="form-error" id="exMsg"></p>
       <form id="exForm">
-        ${isOwner ? `<label class="field"><span>From branch</span><select id="exFrom">${branches.map(opt).join("")}</select></label>` : ""}
+        ${isOwner ? `<label class="field"><span>Take the stock from</span><select id="exFrom">${branches.map(opt).join("")}${all.some((s) => s.branch_id == null) ? `<option value="pool">Unassigned (shared stock)</option>` : ""}</select></label>` : ""}
         <label class="field"><span>Item</span><select id="exItem"></select></label>
         <label class="field"><span>Quantity</span><input type="number" id="exQty" min="0" step="0.01" required /></label>
         <label class="field"><span>Send to</span><select id="exTo"></select></label>
         <label class="field"><span>Note (optional)</span><input type="text" id="exNote" maxlength="200" /></label>
+        <p class="ex-summary" id="exSummary"></p>
         <p class="file-hint">The quantity leaves the sending branch now and reaches the other branch when they confirm it. It is not a sale or a purchase, so income and expenses don't change.</p>
         <div class="form-actions"><button type="submit" class="primary-btn" id="exSubmit">Send stock</button></div>
       </form>
@@ -279,14 +283,32 @@
     const fromEl = $("#exFrom");
     const itemEl = $("#exItem");
     const toEl = $("#exTo");
-    const fromId = () => (isOwner ? Number(fromEl.value) : meId);
+    const sum = $("#exSummary");
+    const poolPicked = () => isOwner && fromEl.value === "pool";
+    const fromId = () => (isOwner ? (poolPicked() ? null : Number(fromEl.value)) : meId);
+
+    function updateSummary() {
+      const item = all.find((s) => String(s.id) === itemEl.value);
+      const to = branches.find((b) => String(b.id) === toEl.value);
+      const qty = parseFloat($("#exQty").value);
+      const fromName = isOwner ? (poolPicked() ? "the shared stock" : fromEl.options[fromEl.selectedIndex]?.text || "") : "your stock";
+      if (!item || !to) { sum.textContent = "Choose what to send and who receives it."; return; }
+      if (!(qty > 0)) { sum.innerHTML = `Sending <strong>${escapeHtml(item.name)}</strong> from ${escapeHtml(fromName)} to <strong>${escapeHtml(to.name)}</strong>. Enter a quantity.`; return; }
+      const left = Number(item.quantity) - qty;
+      sum.innerHTML = `Sending <strong>${qty} × ${escapeHtml(item.name)}</strong> from ${escapeHtml(fromName)} to <strong>${escapeHtml(to.name)}</strong>. ` + (left < 0 ? `<span class="neg">Only ${Number(item.quantity)} available.</span>` : `${left} will be left.`);
+    }
 
     function fillOptions() {
-      const mine = all.filter((s) => s.branch_id === fromId());
-      itemEl.innerHTML = mine.length ? mine.map((s) => `<option value="${s.id}">${escapeHtml(s.name)} (${s.quantity} in stock)</option>`).join("") : `<option value="">No stock in this branch</option>`;
+      const mine = all.filter((s) => (isOwner ? (poolPicked() ? s.branch_id == null : s.branch_id === fromId()) : s.branch_id === meId || s.branch_id == null));
+      itemEl.innerHTML = mine.length
+        ? mine.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}${s.branch_id == null ? " (shared)" : ""} — ${Number(s.quantity)} in stock</option>`).join("")
+        : `<option value="">Nothing to send</option>`;
       toEl.innerHTML = branches.filter((b) => b.id !== fromId()).map(opt).join("");
+      updateSummary();
     }
     if (isOwner) fromEl.addEventListener("change", fillOptions);
+    [itemEl, toEl].forEach((el) => el.addEventListener("change", updateSummary));
+    $("#exQty").addEventListener("input", updateSummary);
     fillOptions();
 
     async function loadTransfers() {
@@ -295,15 +317,16 @@
       try {
         const rows = await Api.exchange.list();
         box.innerHTML = rows.length ? rows.map((t) => {
-          const who = t.direction === "incoming" ? `from ${escapeHtml(t.from_branch_name)}` : t.direction === "outgoing" ? `to ${escapeHtml(t.to_branch_name)}` : `${escapeHtml(t.from_branch_name)} → ${escapeHtml(t.to_branch_name)}`;
+          const pending = t.status === "pending";
           const mayReceive = t.direction === "incoming" || isOwner;
           const maySend = t.direction === "outgoing" || isOwner;
-          const acts = t.status !== "pending" ? `<span class="badge">${escapeHtml(t.status)}</span>` : [
+          const waiting = pending && t.direction === "incoming" ? `<small class="neg">Waiting for you to confirm</small>` : pending && t.direction === "outgoing" ? `<small>Waiting for ${escapeHtml(t.to_branch_name)} to confirm</small>` : "";
+          const acts = !pending ? `<span class="pill ${t.status === "received" ? "ok" : "warn"}">${escapeHtml(t.status)}</span>` : [
             mayReceive && `<button type="button" class="ghost-btn" data-ex="receive" data-id="${t.id}">Receive</button>`,
             mayReceive && `<button type="button" class="ghost-btn" data-ex="reject" data-id="${t.id}">Reject</button>`,
             maySend && `<button type="button" class="ghost-btn" data-ex="cancel" data-id="${t.id}">Cancel</button>`,
           ].filter(Boolean).join(" ");
-          return `<div class="ex-row"><div><strong>${escapeHtml(t.item_name)} × ${t.quantity}</strong><small>${who}${t.note ? " · " + escapeHtml(t.note) : ""}</small></div><div>${acts}</div></div>`;
+          return `<div class="ex-row"><div><strong>${Number(t.quantity)} × ${escapeHtml(t.item_name)}</strong><small>From ${escapeHtml(t.from_branch_name)} → to ${escapeHtml(t.to_branch_name)} · ${formatDate(t.created_at)}${t.note ? " · " + escapeHtml(t.note) : ""}</small>${waiting}</div><div>${acts}</div></div>`;
         }).join("") : `<p class="subtle">No transfers yet.</p>`;
       } catch (err) {
         box.innerHTML = `<p class="subtle">${escapeHtml(err.message || "Could not load transfers.")}</p>`;
@@ -335,12 +358,13 @@
       const submit = $("#exSubmit");
       submit.disabled = true;
       try {
-        if (!itemEl.value) throw new Error("This branch has no stock to send.");
+        if (!itemEl.value) throw new Error("There is no stock to send here. Add stock first, or ask your owner to assign shared stock to a branch.");
+        if (!confirm(sum.textContent.replace(/\s+/g, " ").trim() + "\n\nSend it?")) { submit.disabled = false; return; }
         await Api.exchange.send({
           item_id: parseInt(itemEl.value, 10),
           quantity: parseFloat($("#exQty").value),
           to_branch_id: parseInt(toEl.value, 10),
-          from_branch_id: isOwner ? fromId() : undefined,
+          from_branch_id: isOwner && fromId() != null ? fromId() : undefined,
           note: $("#exNote").value.trim() || null,
         });
         $("#exQty").value = "";

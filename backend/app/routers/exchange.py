@@ -71,20 +71,25 @@ def list_branches(db: Session = Depends(get_db), current_user: User = Depends(re
 @limiter.limit("20/minute")
 def create_transfer(payload: TransferCreate, request: Request, db: Session = Depends(get_db), current_user: User = Depends(require_stock_access)):
     """Sends stock to another branch: the quantity leaves the sender now and reaches the recipient once they confirm."""
-    if _is_owner(current_user):
-        if payload.from_branch_id is None:
+    # The sender is the branch named by an owner, or the signed-in branch account; stock nobody owns yet (unassigned) can be sent by anyone who may use it
+    from_id = payload.from_branch_id if _is_owner(current_user) else current_user.id
+    source = db.query(StockItem).filter(StockItem.id == payload.item_id, StockItem.institution_id == current_user.institution_id).with_for_update().first()
+    if not source:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="That item was not found")
+    if from_id is None:
+        if not _is_owner(current_user) or source.branch_id is not None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Choose the branch the stock leaves from")
-        from_id = payload.from_branch_id
-    else:
         from_id = current_user.id
+        wanted = [payload.to_branch_id]
+    else:
+        wanted = [from_id, payload.to_branch_id]
+        if source.branch_id not in (from_id, None):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="That item is not in the sending branch's stock")
     if from_id == payload.to_branch_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Choose a different branch to send to")
-    branches = {u.id: u for u in _branch_query(db, current_user.institution_id).filter(User.id.in_([from_id, payload.to_branch_id])).all()}
-    if from_id not in branches or payload.to_branch_id not in branches:
+    branches = {u.id: u for u in _branch_query(db, current_user.institution_id).filter(User.id.in_(wanted)).all()}
+    if any(w not in branches for w in wanted):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown branch account")
-    source = db.query(StockItem).filter(StockItem.id == payload.item_id, StockItem.institution_id == current_user.institution_id).with_for_update().first()
-    if not source or source.branch_id != from_id:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="That item is not in the sending branch's stock")
     if source.quantity < payload.quantity:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Not enough stock: only {source.quantity} of '{source.name}' available")
     source.quantity = source.quantity - payload.quantity
