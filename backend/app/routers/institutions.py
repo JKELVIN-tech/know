@@ -6,6 +6,8 @@ from app.core.database import get_db
 from app.core.deps import require_super_admin, require_admin_scope, get_current_user
 from app.core.limiter import limiter
 from app.models.institution import Institution
+from app.models.partner import Partner
+from app.utils.partner import normalize_code
 from app.models.user import User, UserRole
 from app.schemas.institution import InstitutionCreate, InstitutionOut
 from app.utils.uploads import save_school_logo, delete_storage_object, read_upload
@@ -18,7 +20,12 @@ router = APIRouter(prefix="/api/institutions", tags=["institutions"])
 def create_institution(payload: InstitutionCreate, request: Request, db: Session = Depends(get_db), admin: User = Depends(require_super_admin)):
     if db.query(Institution).filter(Institution.name == payload.name).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An institution with this name already exists")
-    institution = Institution(name=payload.name, type=payload.type, address=payload.address, region=payload.region)
+    partner = None
+    if payload.partner_code and normalize_code(payload.partner_code):
+        partner = db.query(Partner).filter(Partner.code == normalize_code(payload.partner_code), Partner.is_active.is_(True)).first()
+        if not partner:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown partner code")
+    institution = Institution(name=payload.name, type=payload.type, address=payload.address, region=payload.region, partner_id=partner.id if partner else None, monthly_fee=payload.monthly_fee)
     db.add(institution)
     db.commit()
     db.refresh(institution)

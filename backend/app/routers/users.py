@@ -123,6 +123,8 @@ def create_user(payload: UserCreate, request: Request, db: Session = Depends(get
     is silently pinned to their own rather than trusting the payload.
     There is no self-registration path in this system by design.
     """
+    if payload.role == UserRole.AGENT:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Agents are added from the Partners page")
     if admin.role == UserRole.INSTITUTION_ADMIN:
         if payload.role == UserRole.SUPER_ADMIN:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Institution admins can't create super admin accounts")

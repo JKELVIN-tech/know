@@ -9,6 +9,7 @@ from app.core.database import Base
 class UserRole(str, enum.Enum):
     SUPER_ADMIN = "super_admin"           # creates institutions, everything, everywhere
     INSTITUTION_ADMIN = "institution_admin"  # onboards staff, manages stock/logo — for their OWN institution only
+    AGENT = "agent"                       # a sales partner: sees only their own businesses and commission
     STAFF = "staff"                       # enters audits/transactions; STAFF whose staff_type is TEACHER never touch stock
 
 

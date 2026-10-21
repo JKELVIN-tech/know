@@ -22,6 +22,10 @@ def _extract_token(request: Request) -> str | None:
     return request.cookies.get(ACCESS_TOKEN_COOKIE)
 
 
+# An agent account may only reach these paths; everything else is refused before any route runs
+AGENT_ALLOWED = ("/api/partner", "/api/auth", "/api/users/me")
+
+
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -48,6 +52,9 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
         # Token was issued before a password reset / deactivation bumped
         # the version — treat it the same as an invalid token.
         raise credentials_exception
+
+    if user.role == UserRole.AGENT and not request.url.path.startswith(AGENT_ALLOWED):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account can only use the agent dashboard")
 
     return user
 

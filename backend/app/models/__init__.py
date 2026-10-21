@@ -14,6 +14,7 @@ from app.models.accounting import Account, AccountType, JournalEntry, JournalLin
 from app.models.message_import import MessageImport
 from app.models.stock_transfer import StockTransfer
 from app.models.password_reset import PasswordReset
+from app.models.partner import Partner, FeePayment, PartnerPayout
 
 __all__ = [
     "Institution",
@@ -42,4 +43,7 @@ __all__ = [
     "MessageImport",
     "StockTransfer",
     "PasswordReset",
+    "Partner",
+    "FeePayment",
+    "PartnerPayout",
 ]

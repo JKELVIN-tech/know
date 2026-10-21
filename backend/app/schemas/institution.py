@@ -1,6 +1,7 @@
+from decimal import Decimal
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 from app.core.constants import KENYA_COUNTIES
 
@@ -10,6 +11,8 @@ class InstitutionCreate(BaseModel):
     type: str
     address: str | None = None
     region: str | None = None
+    partner_code: str | None = None
+    monthly_fee: Decimal | None = Field(default=None, ge=0, le=Decimal("100000000"))
 
     @field_validator("type")
     @classmethod

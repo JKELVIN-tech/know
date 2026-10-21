@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, func
+from sqlalchemy import Column, ForeignKey, Integer, Numeric, String, DateTime, func
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -21,6 +21,10 @@ class Institution(Base):
     logo_path = Column(String(300), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # The agent who registered this business (if any) and its agreed monthly fee
+    partner_id = Column(Integer, ForeignKey("partners.id", ondelete="SET NULL"), nullable=True, index=True)
+    monthly_fee = Column(Numeric(12, 2), nullable=True)
 
     users = relationship("User", back_populates="institution", cascade="all, delete-orphan")
     transactions = relationship("Transaction", back_populates="institution", cascade="all, delete-orphan")

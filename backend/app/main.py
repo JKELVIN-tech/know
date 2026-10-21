@@ -10,7 +10,7 @@ from app.core.bootstrap import ensure_super_admin
 from app.core.config import settings
 from app.core.database import Base, engine, SessionLocal
 from app.core.limiter import limiter
-from app.routers import auth, institutions, users, transactions, audits, posts, reports, moderation, activity_log, stock, mpesa, product_categories, market_analysis, accounting, source_documents, admin_overview, message_imports, exchange, vault, storage_usage, profit
+from app.routers import auth, institutions, users, transactions, audits, posts, reports, moderation, activity_log, stock, mpesa, product_categories, market_analysis, accounting, source_documents, admin_overview, message_imports, exchange, vault, storage_usage, profit, partner, partners_admin
 
 app = FastAPI(
     title="KNOW",
@@ -116,6 +116,8 @@ app.include_router(exchange.router)
 app.include_router(vault.router)
 app.include_router(storage_usage.router)
 app.include_router(profit.router)
+app.include_router(partner.router)
+app.include_router(partners_admin.router)
 
 # Institution logos are not sensitive, so they're served as plain static
 # files — this lets the frontend use them directly in <img src> without
