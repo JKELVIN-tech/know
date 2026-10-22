@@ -21,6 +21,7 @@ function requireAuth(fallbackLoginPage = "login.html") {
 function homePageFor(role) {
   if (role === "super_admin") return "dashboard.html";
   if (role === "institution_admin") return "admin-home.html";
+  if (role === "agent") return "partner.html";
   return "home.html";
 }
 
@@ -208,9 +209,14 @@ const NAV_ITEMS = {
     { href: "profit.html", nav: "profit", label: "Profit", icon: "audit" },
     { href: "settings.html", nav: "settings", label: "Settings", icon: "settings" },
   ],
+  agent: [
+    { href: "partner.html", nav: "partner", label: "Dashboard", icon: "dashboard" },
+    { href: "settings.html", nav: "settings", label: "Settings", icon: "settings" },
+  ],
   super_admin: [
     { href: "dashboard.html", nav: "dashboard", label: "Dashboard", icon: "dashboard" },
     { href: "institutions.html", nav: "institutions", label: "Institutions", icon: "institution" },
+    { href: "partners.html", nav: "partners", label: "Partners", icon: "accounts" },
     { href: "accounts.html", nav: "accounts", label: "Accounts", icon: "accounts" },
     { href: "market.html", nav: "market", label: "Market", icon: "market" },
     { href: "review.html", nav: "review", label: "Review", icon: "flag" },
@@ -269,6 +275,12 @@ async function renderIdentity(session) {
   const sidebarInstitution = $("#sidebarSchool");
 
   if (greetingEl) greetingEl.textContent = greetingFor(session.full_name);
+
+  if (session.role === "agent") {
+    if (institutionLineEl) institutionLineEl.textContent = "Agent dashboard";
+    if (sidebarInstitution) sidebarInstitution.textContent = "KNOW Partner";
+    return;
+  }
 
   if (session.role === "super_admin") {
     if (institutionLineEl) institutionLineEl.textContent = "Super admin console";

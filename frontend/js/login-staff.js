@@ -12,8 +12,8 @@ form.addEventListener("submit", (e) => {
   handleLoginSubmit({
     username: document.getElementById("loginUsername").value.trim(),
     password: document.getElementById("loginPassword").value,
-    expectedRole: ["staff", "institution_admin"],
-    wrongRoleMessage: "This sign-in is for staff and owners. Use the super admin sign-in page instead.",
+    expectedRole: ["staff", "institution_admin", "agent"],
+    wrongRoleMessage: "This sign-in is for staff, owners and agents. Use the super admin sign-in page instead.",
     form, msgEl: msg, submitBtn,
   });
 });

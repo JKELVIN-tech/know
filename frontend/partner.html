@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en" data-mode="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.onrender.com https://*.supabase.co; object-src 'none'; base-uri 'none'; form-action 'self'" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>KNOW — Agent dashboard</title>
+    <meta name="description" content="Institution books for the owner." />
+    <meta name="theme-color" content="#0f766e" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./assets/logo.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body data-page="partner">
+    <div class="app-shell" id="appShell">
+      <aside class="sidebar">
+        <div class="brand">
+          <img class="brand-logo" id="sidebarLogo" src="./assets/logo.svg" alt="KNOW logo" />
+          <div class="brand-text">
+            <strong id="sidebarSchool">KNOW</strong>
+            <span>Owner</span>
+          </div>
+        </div>
+        <nav class="side-nav" aria-label="Main"></nav>
+        <div class="side-foot">
+          <p class="principle">&ldquo;Your institution, your accounts, your call.&rdquo;</p>
+        </div>
+      </aside>
+
+      <main class="main" id="main">
+        <header class="topbar">
+          <div class="topbar-id">
+            <img class="topbar-logo" id="topLogo" src="./assets/logo.svg" alt="KNOW logo" />
+            <div class="topbar-copy">
+              <p class="greeting" id="greeting">Good morning</p>
+              <p class="subtle" id="schoolLine">Institution</p>
+            </div>
+          </div>
+          <div class="topbar-actions">
+            <button class="icon-btn" id="modeToggle" aria-label="Toggle light or dark mode" title="Light / dark mode">
+              <span class="ico" data-ico="mode"></span>
+            </button>
+          </div>
+        </header>
+
+        <section class="page is-active" data-page="partner">
+          <div class="card partner-hero">
+            <div>
+              <p class="subtle">Your partner code</p>
+              <div class="code-box" id="ptCode">—</div>
+              <p class="subtle" id="ptRate"></p>
+            </div>
+            <div class="head-actions">
+              <button type="button" class="primary-btn" id="ptCopy">Copy code</button>
+              <button type="button" class="ghost-btn" id="ptShare">Share</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="profit-bar">
+              <button type="button" class="ghost-btn" id="ptPrev" aria-label="Previous month">&#8249;</button>
+              <strong id="ptMonth" class="pt-month"></strong>
+              <button type="button" class="ghost-btn" id="ptNext" aria-label="Next month">&#8250;</button>
+              <button type="button" class="ghost-btn" id="ptNow">This month</button>
+            </div>
+            <div class="kpi-row">
+              <div class="kpi"><strong id="ptBiz">—</strong><span>Businesses</span></div>
+              <div class="kpi"><strong id="ptPaying">—</strong><span>Paying this month</span></div>
+              <div class="kpi"><strong id="ptEarned">—</strong><span>Earned this month</span></div>
+              <div class="kpi kpi-accent"><strong id="ptBalance">—</strong><span>Balance due to you</span></div>
+            </div>
+            <div class="pt-totals subtle" id="ptTotals"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Earnings</h2><span class="subtle">Last 6 months</span></div>
+            <div class="bars" id="ptBars"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>My businesses</h2><span class="pill" id="ptCount">0</span></div>
+            <div class="chips" id="ptChips"></div>
+            <label class="field"><span>Search</span><input type="search" id="ptSearch" placeholder="Business name or region" /></label>
+            <div id="ptList"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Commission history</h2></div>
+            <div id="ptHistory"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>Payouts to you</h2></div>
+            <div id="ptPayouts"></div>
+          </div>
+        </section>
+      </main>
+
+      <nav class="tabbar" id="tabbar" aria-label="Main"></nav>
+    </div>
+
+    <div class="sheet-backdrop" id="sheetBackdrop" hidden>
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+        <div class="sheet-head">
+          <h2 id="sheetTitle">Name this audit</h2>
+          <button class="icon-btn" id="sheetClose" aria-label="Close">&#10005;</button>
+        </div>
+        <div class="sheet-body" id="sheetBody"></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+
+    <script src="config.js"></script>
+    <script src="./js/api.js"></script>
+    <script src="./js/ui.js"></script>
+    <script src="./js/partner.js"></script>
+  </body>
+</html>

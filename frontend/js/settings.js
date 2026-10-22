@@ -1,9 +1,10 @@
 (async function () {
-  const session = await initShell("settings", ["staff", "institution_admin", "super_admin"]);
+  const session = await initShell("settings", ["staff", "institution_admin", "super_admin", "agent"]);
 
   function roleLabel(role) {
     if (role === "super_admin") return "Super admin";
     if (role === "institution_admin") return "Owner";
+    if (role === "agent") return "Agent";
     return session.staff_type === "teacher" ? "Staff (Personal)" : "Staff";
   }
 
@@ -24,9 +25,9 @@
   }
 
   const institutionRow = $("#acctSchoolRow");
-  if (session.role === "super_admin") {
+  if (session.role === "super_admin" || session.role === "agent") {
     institutionRow.style.display = "none";
-    $("#acctPasswordHint").textContent = "Only another super admin can reset your password.";
+    if (session.role === "super_admin") $("#acctPasswordHint").textContent = "Only another super admin can reset your password.";
   } else {
     try {
       const institution = await Api.institutions.get(session.institution_id);
