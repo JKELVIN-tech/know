@@ -165,7 +165,7 @@ fun InstitutionsScreen(
             submitting = state.isSubmitting,
             error = state.submitError,
             onDismiss = { creating = false },
-            onSubmit = { name, type, address, region -> viewModel.create(name, type, address, region) { ok -> if (ok) creating = false } },
+            onSubmit = { name, type, address, region, partnerCode -> viewModel.create(name, type, address, region, partnerCode) { ok -> if (ok) creating = false } },
         )
     }
 
@@ -314,7 +314,7 @@ private fun CreateInstitutionSheet(
     submitting: Boolean,
     error: String?,
     onDismiss: () -> Unit,
-    onSubmit: (name: String, type: String, address: String?, region: String?) -> Unit,
+    onSubmit: (name: String, type: String, address: String?, region: String?, partnerCode: String?) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var name by remember { mutableStateOf("") }
@@ -322,6 +322,7 @@ private fun CreateInstitutionSheet(
     var customType by remember { mutableStateOf("") }
     var region by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
+    var partnerCode by remember { mutableStateOf("") }
     val finalType = if (type == "Other") customType.trim() else type
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = MaterialTheme.colorScheme.surface) {
@@ -343,8 +344,9 @@ private fun CreateInstitutionSheet(
             error?.let {
                 Text(it, color = DangerRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().background(DangerRed.copy(alpha = 0.12f), SmallRadius).padding(12.dp))
             }
+            OutlinedTextField(value = partnerCode, onValueChange = { partnerCode = it.uppercase() }, label = { Text("Partner code (optional)") }, supportingText = { Text("The agent who brought this business earns a share of its monthly fee") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
             Button(
-                onClick = { onSubmit(name.trim(), finalType, address.trim().ifBlank { null }, region.ifBlank { null }) },
+                onClick = { onSubmit(name.trim(), finalType, address.trim().ifBlank { null }, region.ifBlank { null }, partnerCode.trim().ifBlank { null }) },
                 enabled = !submitting && name.isNotBlank() && finalType.isNotBlank(),
                 shape = PillShape,
                 modifier = Modifier.fillMaxWidth().height(54.dp),

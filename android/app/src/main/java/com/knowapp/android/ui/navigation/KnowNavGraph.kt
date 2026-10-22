@@ -79,6 +79,10 @@ private fun tabsFor(role: String?, staffType: String?): List<Tab> = when (role) 
         Tab(Routes.MARKET, "Market", Icons.Outlined.Insights),
         Tab(Routes.SETTINGS, "Settings", Icons.Outlined.Settings),
     )
+    "agent" -> listOf(
+        Tab(Routes.AGENT, "Dashboard", Icons.Outlined.Dashboard),
+        Tab(Routes.SETTINGS, "Settings", Icons.Outlined.Settings),
+    )
     "institution_admin" -> listOf(
         Tab(Routes.BOOKS, "Books", Icons.Outlined.AccountBalance),
         Tab(Routes.STOCK, "Stock", Icons.Outlined.Inventory2),
@@ -98,6 +102,7 @@ private fun tabsFor(role: String?, staffType: String?): List<Tab> = when (role) 
 private fun startFor(role: String?): String = when (role) {
     "super_admin" -> Routes.OVERVIEW
     "institution_admin" -> Routes.BOOKS
+    "agent" -> Routes.AGENT
     else -> Routes.HOME
 }
 
@@ -188,6 +193,12 @@ fun KnowNavGraph(container: AppContainer) {
                 onSeeAll = { goTab(Routes.STATEMENTS) },
                 onToggleTheme = { makeDark -> container.themeStore.set(if (makeDark) ThemeMode.DARK else ThemeMode.LIGHT) },
             )
+        }
+        composable(Routes.AGENT) {
+            val viewModel: com.knowapp.android.ui.agent.AgentViewModel = viewModel(
+                factory = vmFactory { com.knowapp.android.ui.agent.AgentViewModel(container.partnerRepository) },
+            )
+            com.knowapp.android.ui.agent.AgentScreen(viewModel = viewModel)
         }
         composable(Routes.PROFIT) {
             val viewModel: com.knowapp.android.ui.profit.ProfitViewModel = viewModel(

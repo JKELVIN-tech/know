@@ -81,10 +81,10 @@ class InstitutionsViewModel(
     fun clearSubmitError() { uiState = uiState.copy(submitError = null) }
     fun messageShown() { uiState = uiState.copy(message = null) }
 
-    fun create(name: String, type: String, address: String?, region: String?, onDone: (Boolean) -> Unit) {
+    fun create(name: String, type: String, address: String?, region: String?, partnerCode: String?, onDone: (Boolean) -> Unit) {
         uiState = uiState.copy(isSubmitting = true, submitError = null)
         viewModelScope.launch {
-            when (val result = institutionsRepository.create(name, type, address, region)) {
+            when (val result = institutionsRepository.create(name, type, address, region, partnerCode)) {
                 is InstitutionActionResult.Success -> {
                     uiState = uiState.copy(isSubmitting = false, message = "${result.institution.name} added.")
                     refresh()

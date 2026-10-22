@@ -442,3 +442,46 @@ data class CostItemOut(
 )
 
 data class CostBody(@SerializedName("avg_cost") val avgCost: String)
+
+
+data class PartnerProfile(val name: String, val code: String, @SerializedName("commission_rate") val commissionRate: String, val active: Boolean = true)
+
+data class PartnerTotals(
+    val businesses: Int = 0,
+    @SerializedName("paying_this_month") val payingThisMonth: Int = 0,
+    @SerializedName("fees_collected_month") val feesCollectedMonth: String = "0",
+    @SerializedName("earned_month") val earnedMonth: String = "0",
+    @SerializedName("earned_total") val earnedTotal: String = "0",
+    @SerializedName("paid_out") val paidOut: String = "0",
+    @SerializedName("balance_due") val balanceDue: String = "0",
+)
+
+data class PartnerBusiness(
+    val name: String,
+    val type: String,
+    val region: String? = null,
+    @SerializedName("owner_name") val ownerName: String? = null,
+    @SerializedName("registered_at") val registeredAt: String? = null,
+    @SerializedName("monthly_fee") val monthlyFee: String? = null,
+    val status: String,
+    @SerializedName("last_paid_period") val lastPaidPeriod: String? = null,
+    @SerializedName("earned_month") val earnedMonth: String = "0",
+    @SerializedName("earned_total") val earnedTotal: String = "0",
+)
+
+data class PartnerCommission(val business: String, val period: String, @SerializedName("paid_on") val paidOn: String, val fee: String, val rate: String, val commission: String)
+
+data class PartnerPayoutRow(@SerializedName("paid_on") val paidOn: String, val amount: String, val reference: String? = null)
+
+data class PartnerSeries(val period: String, val earned: String)
+
+data class PartnerDashboard(
+    val profile: PartnerProfile,
+    val month: String,
+    @SerializedName("current_month") val currentMonth: String,
+    val totals: PartnerTotals,
+    val businesses: List<PartnerBusiness> = emptyList(),
+    @SerializedName("recent_commissions") val recentCommissions: List<PartnerCommission> = emptyList(),
+    val payouts: List<PartnerPayoutRow> = emptyList(),
+    val series: List<PartnerSeries> = emptyList(),
+)

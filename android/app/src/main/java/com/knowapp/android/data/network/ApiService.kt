@@ -274,4 +274,7 @@ interface ApiService {
 
     @PATCH("/api/profit/costs/{itemId}")
     suspend fun setCost(@Path("itemId") itemId: Int, @Body body: com.knowapp.android.data.model.CostBody): Response<okhttp3.ResponseBody>
+
+    @GET("/api/partner/dashboard")
+    suspend fun partnerDashboard(@Query("month") month: String?): Response<com.knowapp.android.data.model.PartnerDashboard>
 }
