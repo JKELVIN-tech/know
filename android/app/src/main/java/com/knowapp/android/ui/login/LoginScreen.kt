@@ -165,8 +165,12 @@ fun LoginScreen(
                 Text("Forgot password?")
             }
 
+            androidx.compose.material3.TextButton(onClick = { uriHandler.openUri(com.knowapp.android.BuildConfig.API_BASE_URL + "/api/auth/signup-redirect") }) {
+                Text("Create a staff or personal account")
+            }
+
             Text(
-                text = "Accounts are provisioned by a super admin. There's no self-service signup.",
+                text = "Part of an institution? Ask your owner for your login.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

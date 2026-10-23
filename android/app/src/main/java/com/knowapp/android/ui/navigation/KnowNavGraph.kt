@@ -241,7 +241,6 @@ fun KnowNavGraph(container: AppContainer) {
                 onNewDocument = { type -> navController.navigate(Routes.documentNew(type)) },
                 onOpenItemDocuments = { itemId -> navController.navigate(Routes.documents(itemId)) },
                 onNewItemDocument = { itemId, type -> navController.navigate(Routes.documentNew(type, itemId)) },
-                onOpenProfit = { navController.navigate(Routes.PROFIT) },
             )
         }
         composable(

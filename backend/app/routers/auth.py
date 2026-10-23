@@ -4,6 +4,7 @@ from fastapi.responses import RedirectResponse
 from fastapi import BackgroundTasks, Header, APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.activity_log import log_activity
@@ -14,9 +15,10 @@ from app.core.limiter import limiter
 from app.core.security import hash_password, verify_password, create_access_token, generate_csrf_token
 from app.core.limiter import get_client_ip
 from app.models.password_reset import PasswordReset
-from app.models.user import User
+from app.models.institution import Institution
+from app.models.user import StaffType, User, UserRole
 from app.schemas.auth import TokenResponse
-from app.schemas.user import ForgotPassword, ResetWithToken
+from app.schemas.user import ForgotPassword, ResetWithToken, SignupRequest
 from app.utils.password_reset import hash_token, issue_token, recent_requests, send_changed_email, send_reset_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -69,7 +71,7 @@ def login(
 ):
     """
     Credential-based login. Accounts are provisioned by a super admin —
-    there is no self-service signup.
+    a standalone staff or personal account can also be opened through /signup.
 
     Two layers of brute-force protection stack here: the slowapi limit
     above throttles by IP, and the per-account lockout below stops a
@@ -160,6 +162,65 @@ def logout(response: Response):
     """
     response.delete_cookie(ACCESS_TOKEN_COOKIE, path="/")
     response.delete_cookie(CSRF_COOKIE, path="/")
+
+
+@router.get("/signup-redirect", include_in_schema=False)
+def signup_redirect():
+    """Lets the Android app open the website's sign-up page without knowing the website's address."""
+    return RedirectResponse(f"{settings.frontend_base}/signup.html", status_code=302)
+
+
+@router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/hour")
+@limiter.limit("200/hour", key_func=lambda request: "signup-all")
+def signup(
+    payload: SignupRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    x_client: str | None = Header(None),
+):
+    """Anyone can open a standalone staff or personal account; it gets its own private workspace and no owner above it."""
+    if db.query(User).filter(func.lower(User.username) == payload.username.lower()).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
+    if payload.email and db.query(User).filter(func.lower(User.email) == payload.email).first():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="That email address is already used by another account")
+
+    is_personal = payload.account_type == "personal"
+    # The username is unique, so this workspace name is too
+    workspace = Institution(name=f"{payload.full_name} (@{payload.username})"[:200], type="individual")
+    try:
+        db.add(workspace)
+        db.flush()
+        user = User(
+            username=payload.username,
+            full_name=payload.full_name,
+            email=payload.email,
+            hashed_password=hash_password(payload.password),
+            role=UserRole.STAFF,
+            staff_type=StaffType.TEACHER if is_personal else StaffType.GENERAL,
+            institution_id=workspace.id,
+        )
+        db.add(user)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
+    db.refresh(user)
+    log_activity(db, action="self_signup", actor=user, target_type="user", target_id=user.id,
+                 detail=f"Self-registered a {payload.account_type} account", request=request)
+
+    lifetime = 60 * 24 * settings.ANDROID_TOKEN_EXPIRE_DAYS if x_client == "android" else None
+    token = create_access_token(data={"sub": str(user.id), "role": user.role.value, "tv": user.token_version}, expires_minutes=lifetime)
+    _set_session_cookies(response, token, generate_csrf_token())
+    return TokenResponse(
+        access_token=token,
+        user_id=user.id,
+        role=user.role.value,
+        staff_type=user.staff_type.value,
+        full_name=user.full_name,
+        institution_id=user.institution_id,
+    )
 
 
 @router.get("/forgot-redirect", include_in_schema=False)

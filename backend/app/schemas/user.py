@@ -90,6 +90,48 @@ class UserCreate(BaseModel):
         return self
 
 
+class SignupRequest(BaseModel):
+    username: str
+    full_name: str
+    password: str
+    account_type: str
+    email: str | None = None
+
+    @field_validator("email")
+    @classmethod
+    def email_format(cls, v: str | None) -> str | None:
+        return clean_email(v) or None
+
+    @field_validator("account_type")
+    @classmethod
+    def account_type_valid(cls, v: str) -> str:
+        v = v.strip().lower()
+        if v not in ("staff", "personal"):
+            raise ValueError("account_type must be staff or personal")
+        return v
+
+    @field_validator("full_name")
+    @classmethod
+    def name_clean(cls, v: str) -> str:
+        v = " ".join(v.split())
+        if len(v) < 2 or len(v) > 100:
+            raise ValueError("Enter your name (2 to 100 characters)")
+        return v
+
+    @field_validator("username")
+    @classmethod
+    def username_format(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 3 or len(v) > 40 or not re.fullmatch(r"[A-Za-z0-9_.-]+", v):
+            raise ValueError("Username must be 3 to 40 letters, numbers, dots, dashes or underscores")
+        return v
+
+    @model_validator(mode="after")
+    def password_ok(self):
+        check_password(self.password, self.username)
+        return self
+
+
 class UserOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

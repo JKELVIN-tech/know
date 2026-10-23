@@ -121,7 +121,7 @@ def create_user(payload: UserCreate, request: Request, db: Session = Depends(get
     institution_admin can only issue STAFF or INSTITUTION_ADMIN accounts —
     never SUPER_ADMIN — and only for their own institution; institution_id
     is silently pinned to their own rather than trusting the payload.
-    There is no self-registration path in this system by design.
+    Standalone staff or personal accounts register themselves through /api/auth/signup instead.
     """
     if payload.role == UserRole.AGENT:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Agents are added from the Partners page")

@@ -75,7 +75,6 @@ fun StockScreen(
     onBack: () -> Unit,
     showBack: Boolean = true,
     onOpenDocuments: () -> Unit = {},
-    onOpenProfit: () -> Unit = {},
     onNewDocument: (String) -> Unit = {},
     onOpenItemDocuments: (Int) -> Unit = {},
     onNewItemDocument: (Int, String) -> Unit = { _, _ -> },
@@ -157,9 +156,6 @@ fun StockScreen(
                     }
                     if (viewModel.isOwner && state.items.any { it.branchId == null }) {
                         Text("${state.items.count { it.branchId == null }} item(s) are not assigned to a branch yet, so every branch can see them. Edit an item to assign it.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    if (viewModel.isOwner) {
-                        OutlinedButton(onClick = onOpenProfit, modifier = Modifier.fillMaxWidth()) { Text("Daily profit") }
                     }
                     OutlinedButton(onClick = { viewModel.loadExchange(); showExchange = true }, modifier = Modifier.fillMaxWidth()) {
                         Text(if (state.pendingCount > 0) "Exchange stock (${state.pendingCount})" else "Exchange stock")
