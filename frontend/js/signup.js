@@ -10,6 +10,7 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
       full_name: document.getElementById("signupName").value.trim(),
       username: document.getElementById("signupUsername").value.trim(),
       email: document.getElementById("signupEmail").value.trim() || null,
+      partner_code: document.getElementById("signupPartner").value.trim() || null,
       password: document.getElementById("signupPassword").value,
     });
     const { user_id, role, staff_type, full_name, institution_id, access_token } = data;

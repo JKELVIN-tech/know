@@ -96,6 +96,7 @@ class SignupRequest(BaseModel):
     password: str
     account_type: str
     email: str | None = None
+    partner_code: str | None = None
 
     @field_validator("email")
     @classmethod

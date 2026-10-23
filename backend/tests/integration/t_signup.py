@@ -33,3 +33,10 @@ ok("bad account type refused", c.post("/api/auth/signup", json=body("bad1", "own
 ok("duplicate email refused", c.post("/api/auth/signup", json=body("mail1", email="a@b.test")).status_code == 201 and c.post("/api/auth/signup", json=body("mail2", email="A@B.test")).status_code == 409)
 ok("can log in afterwards", c.post("/api/auth/login", data={"username": "amina1", "password": "Strong#Pass99"}).status_code == 200)
 ok("signup redirect works", c.get("/api/auth/signup-redirect", follow_redirects=False).status_code == 302)
+from app.core.security import hash_password
+_d = S(); _u = User(username="agent1", full_name="Agent", hashed_password=hash_password("Strong#Pass99"), role=UserRole.AGENT); _d.add(_u); _d.flush()
+_d.add(Partner(user_id=_u.id, code="ABC234", commission_rate=20)); _d.commit()
+rp = c.post("/api/auth/signup", json=body("viapartner", partner_code="abc234"))
+ok("valid partner code accepted", rp.status_code == 201)
+ok("workspace is linked to the partner", _d.query(Institution).get(rp.json()["institution_id"]).partner_id is not None)
+ok("unknown partner code refused", c.post("/api/auth/signup", json=body("badpartner", partner_code="ZZZ999")).status_code == 422)
