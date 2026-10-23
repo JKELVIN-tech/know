@@ -20,6 +20,7 @@ sealed class UpdateState {
     object Checking : UpdateState()
     object UpToDate : UpdateState()
     object Available : UpdateState()
+    object Unknown : UpdateState()
     data class Downloading(val percent: Int) : UpdateState()
     object NeedPermission : UpdateState()
     object Installing : UpdateState()
@@ -44,18 +45,29 @@ class UpdateManager(context: Context) {
         return conn
     }
 
-    suspend fun check() = withContext(Dispatchers.IO) {
-        _state.value = UpdateState.Checking
-        try {
-            val conn = open(RELEASE_API)
-            conn.setRequestProperty("Accept", "application/vnd.github+json")
-            if (conn.responseCode != 200) throw RuntimeException("Update server returned ${conn.responseCode}.")
+    // A small file on the release has no request limit, unlike GitHub's API, which refuses shared mobile addresses
+    private fun latestFromVersionFile(): String? = try {
+        val conn = open(VERSION_URL)
+        if (conn.responseCode == 200) conn.inputStream.bufferedReader().use { it.readText() }.trim().takeIf { Regex("[0-9a-f]{40}").matches(it) } else null
+    } catch (e: Exception) { null }
+
+    private fun latestFromApi(): String? = try {
+        val conn = open(RELEASE_API)
+        conn.setRequestProperty("Accept", "application/vnd.github+json")
+        if (conn.responseCode == 200) {
             val body = conn.inputStream.bufferedReader().use { it.readText() }
             val text = JsonParser.parseString(body).asJsonObject.get("body")?.asString ?: ""
-            val latest = Regex("commit ([0-9a-f]{40})").find(text)?.groupValues?.get(1)
-            _state.value = if (latest != null && latest == BuildConfig.GIT_SHA) UpdateState.UpToDate else UpdateState.Available
-        } catch (e: Exception) {
-            _state.value = UpdateState.Error(e.message ?: "Could not reach the update server.")
+            Regex("commit ([0-9a-f]{40})").find(text)?.groupValues?.get(1)
+        } else null
+    } catch (e: Exception) { null }
+
+    suspend fun check() = withContext(Dispatchers.IO) {
+        _state.value = UpdateState.Checking
+        val latest = latestFromVersionFile() ?: latestFromApi()
+        _state.value = when {
+            latest == null -> UpdateState.Unknown
+            latest == BuildConfig.GIT_SHA -> UpdateState.UpToDate
+            else -> UpdateState.Available
         }
     }
 
@@ -115,6 +127,7 @@ class UpdateManager(context: Context) {
 
     private companion object {
         const val RELEASE_API = "https://api.github.com/repos/bashevent01-commits/teach-app/releases/tags/android-latest"
+        const val VERSION_URL = "https://github.com/bashevent01-commits/teach-app/releases/download/android-latest/version.txt"
         const val APK_URL = "https://github.com/bashevent01-commits/teach-app/releases/download/android-latest/app-debug.apk"
     }
 }

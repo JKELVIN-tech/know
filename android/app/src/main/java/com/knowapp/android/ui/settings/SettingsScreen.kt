@@ -50,12 +50,13 @@ fun SettingsScreen(updateManager: UpdateManager, themeStore: ThemeStore, profile
         is UpdateState.Checking -> "Checking for updates…"
         is UpdateState.UpToDate -> "$installed. You are on the latest version."
         is UpdateState.Available -> "$installed. A newer version is available."
+        is UpdateState.Unknown -> "$installed. Could not check the latest version, but you can still download it."
         is UpdateState.Downloading -> "Downloading update… ${s.percent}%"
         is UpdateState.NeedPermission -> "Allow KNOW to install apps in the settings screen that just opened, come back, then tap again."
         is UpdateState.Installing -> "Download complete. Confirm the install on the next screen."
         is UpdateState.Error -> "$installed. ${s.message}"
     }
-    val canInstall = state is UpdateState.Available || state is UpdateState.NeedPermission || state is UpdateState.Installing
+    val canInstall = state is UpdateState.Available || state is UpdateState.Unknown || state is UpdateState.NeedPermission || state is UpdateState.Installing
     val busy = state is UpdateState.Checking || state is UpdateState.Downloading
 
     Scaffold(
