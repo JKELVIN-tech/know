@@ -165,8 +165,14 @@ fun LoginScreen(
                 Text("Forgot password?")
             }
 
-            androidx.compose.material3.TextButton(onClick = { uriHandler.openUri(com.knowapp.android.BuildConfig.API_BASE_URL + "/api/auth/signup-redirect") }) {
-                Text("Create a staff or personal account")
+            androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            androidx.compose.material3.OutlinedButton(
+                onClick = { uriHandler.openUri(com.knowapp.android.BuildConfig.API_BASE_URL + "/api/auth/signup-redirect") },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+            ) {
+                Text("Create a staff or personal account", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
             }
 
             Text(
