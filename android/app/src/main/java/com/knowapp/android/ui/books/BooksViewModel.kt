@@ -25,7 +25,7 @@ enum class BooksPeriod(val label: String) {
     CUSTOM("Custom range"),
 }
 
-enum class BooksView(val label: String) { JOURNAL("Journal"), TRIAL("Trial balance"), ACCOUNTS("Accounts") }
+enum class BooksView(val label: String) { JOURNAL("Journal"), TRIAL("Trial balance"), ACCOUNTS("Final accounts") }
 
 data class BooksUiState(
     val loading: Boolean = true,

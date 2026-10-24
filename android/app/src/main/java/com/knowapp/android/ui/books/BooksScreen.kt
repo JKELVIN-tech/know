@@ -4,6 +4,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
@@ -105,6 +107,8 @@ fun BooksScreen(
     var rangeStart by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<java.time.LocalDate?>(null) }
     var rangeEnd by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<java.time.LocalDate?>(null) }
     var title by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    var booksOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var booksMenu by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
     androidx.compose.runtime.LaunchedEffect(state.message) {
         state.message?.let { snackbar.showSnackbar(it); viewModel.messageShown() }
@@ -221,19 +225,37 @@ fun BooksScreen(
                     }
 
                     item {
-                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 14.dp)) {
-                            BooksView.values().forEachIndexed { index, v ->
-                                SegmentedButton(
-                                    selected = state.view == v,
-                                    onClick = { viewModel.selectView(v) },
-                                    shape = SegmentedButtonDefaults.itemShape(index, BooksView.values().size),
-                                    label = { Text(v.label, maxLines = 1, softWrap = false, fontSize = 13.sp) },
-                                )
+                        if (!booksOpen) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 18.dp, bottom = 14.dp)
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.45f), RoundedCornerShape(18.dp))
+                                    .clickable { booksMenu = true }
+                                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Accounting books", fontWeight = FontWeight.Bold)
+                                    Text("Journal, trial balance and final accounts", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        } else {
+                            Row(modifier = Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                androidx.compose.material3.FilledTonalButton(onClick = { booksMenu = true }, shape = RoundedCornerShape(50)) {
+                                    Text(state.view.label, fontWeight = FontWeight.SemiBold)
+                                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, modifier = Modifier.padding(start = 4.dp))
+                                }
+                                androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                                TextButton(onClick = { booksOpen = false }) { Text("Hide") }
                             }
                         }
                     }
 
-                    when (state.view) {
+                    if (booksOpen) when (state.view) {
                         BooksView.JOURNAL -> {
                             if (data.journal.isEmpty()) {
                                 item { EmptyNote("No entries in this period.") }
@@ -287,6 +309,37 @@ fun BooksScreen(
                             }
                             item { Text("Tap an account to see its T-account.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    if (booksMenu) {
+        ModalBottomSheet(onDismissRequest = { booksMenu = false }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.surface) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+                Text("Accounting books", style = MaterialTheme.typography.titleLarge, fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold)
+                Text("Choose what to open for this period.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
+                listOf(
+                    Triple(BooksView.JOURNAL, "Journal", "Every entry, oldest first, with debits and credits"),
+                    Triple(BooksView.TRIAL, "Trial balance", "All account balances and whether they agree"),
+                    Triple(BooksView.ACCOUNTS, "Final accounts", "Assets, liabilities, equity, income and expenses"),
+                ).forEach { (view, name, hint) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (state.view == view && booksOpen) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                            .clickable { viewModel.selectView(view); booksOpen = true; booksMenu = false }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(name, fontWeight = FontWeight.Bold)
+                            Text(hint, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

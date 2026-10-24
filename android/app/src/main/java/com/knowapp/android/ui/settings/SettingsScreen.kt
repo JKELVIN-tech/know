@@ -5,6 +5,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -110,40 +113,63 @@ fun SettingsScreen(updateManager: UpdateManager, themeStore: ThemeStore, profile
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 18.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Hero: photo, name, role and business
-            Box(modifier = Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(HeroTop, HeroBottom)), RoundedCornerShape(28.dp)).padding(horizontal = 20.dp, vertical = 26.dp)) {
-                Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(modifier = Modifier.size(104.dp).clickable { photoPicker.launch("image/*") }) {
-                        Box(modifier = Modifier.align(Alignment.Center).border(3.dp, Mint, CircleShape).padding(4.dp)) {
+            // Profile card: cover, overlapping photo, name, headline and actions
+            val business = profileState.institutionName?.takeIf { it.isNotBlank() && !it.contains("(@") }
+            Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(MaterialTheme.colorScheme.surface)) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Box(modifier = Modifier.fillMaxWidth().height(124.dp).background(Brush.linearGradient(listOf(HeroTop, HeroBottom)))) {
+                        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                            drawCircle(color = Color.White.copy(alpha = 0.07f), radius = size.height * 0.9f, center = androidx.compose.ui.geometry.Offset(size.width * 0.92f, size.height * 0.1f))
+                            drawCircle(color = Color.White.copy(alpha = 0.06f), radius = size.height * 0.55f, center = androidx.compose.ui.geometry.Offset(size.width * 0.62f, size.height * 1.05f))
+                            drawCircle(color = Mint.copy(alpha = 0.10f), radius = size.height * 0.35f, center = androidx.compose.ui.geometry.Offset(size.width * 0.08f, size.height * 0.2f))
+                        }
+                    }
+                    Box(modifier = Modifier.align(Alignment.BottomStart).padding(start = 20.dp).offset(y = 48.dp).size(104.dp).clickable { photoPicker.launch("image/*") }) {
+                        Box(modifier = Modifier.align(Alignment.Center).background(MaterialTheme.colorScheme.surface, CircleShape).padding(4.dp)) {
                             com.knowapp.android.ui.components.UserAvatar(
                                 name = profileState.name.ifBlank { "You" },
                                 avatarUrl = if (profileState.removePhoto) null else (profileState.newPhoto ?: profileState.avatarUrl),
-                                size = 90.dp,
+                                size = 96.dp,
                             )
                         }
-                        Box(
-                            modifier = Modifier.align(Alignment.BottomEnd).size(32.dp).background(Mint, CircleShape),
-                            contentAlignment = Alignment.Center,
-                        ) { Icon(Icons.Filled.Edit, contentDescription = "Change photo", tint = HeroBottom, modifier = Modifier.size(17.dp)) }
+                        Box(modifier = Modifier.align(Alignment.BottomEnd).size(32.dp).background(HeroTop, CircleShape), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Filled.Edit, contentDescription = "Change photo", tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
                     }
+                }
+                Box(modifier = Modifier.height(58.dp))
+                Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                    Text(profileState.name.ifBlank { " " }, fontFamily = DisplayFontFamily, fontWeight = FontWeight.ExtraBold, fontSize = 26.sp)
                     Text(
-                        profileState.name.ifBlank { " " },
-                        color = Color.White, fontFamily = DisplayFontFamily, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp,
-                        textAlign = TextAlign.Center, modifier = Modifier.padding(top = 14.dp),
+                        listOfNotNull(roleLabel(profileState.role, profileState.staffType), business).joinToString("  ·  "),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f), fontSize = 15.sp, modifier = Modifier.padding(top = 2.dp),
                     )
-                    Box(modifier = Modifier.padding(top = 8.dp).background(Color.White.copy(alpha = 0.16f), CircleShape).padding(horizontal = 14.dp, vertical = 5.dp)) {
-                        Text(roleLabel(profileState.role, profileState.staffType).uppercase(), color = Mint, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
-                    }
-                    profileState.institutionName?.takeIf { it.isNotBlank() && !it.contains("(@") }?.let {
-                        Text(it, color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp), textAlign = TextAlign.Center)
-                    }
                     memberSinceText(profileState.memberSince)?.let {
-                        Text(it, color = Color.White.copy(alpha = 0.65f), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                        Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
                     }
-                    androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 10.dp)) {
-                        androidx.compose.material3.TextButton(onClick = { photoPicker.launch("image/*") }) { Text("Change photo", color = Mint) }
-                        if (hasPhoto) androidx.compose.material3.TextButton(onClick = profile::removePhoto) { Text("Remove", color = Color.White.copy(alpha = 0.75f)) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 16.dp, bottom = 20.dp)) {
+                        OutlinedButton(onClick = { photoPicker.launch("image/*") }, shape = PillShape) { Text("Change photo", fontWeight = FontWeight.SemiBold) }
+                        if (hasPhoto) OutlinedButton(onClick = profile::removePhoto, shape = PillShape) { Text("Remove") }
                     }
+                }
+            }
+
+            // Profile strength: nudges people to add a photo and a bio
+            val hasBio = profileState.bio.isNotBlank()
+            val doneCount = (if (hasPhoto) 1 else 0) + (if (hasBio) 1 else 0)
+            if (doneCount < 2) {
+                AppCard(modifier = Modifier.fillMaxWidth()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Complete your profile", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Text("$doneCount of 2", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    }
+                    androidx.compose.material3.LinearProgressIndicator(progress = { doneCount / 2f }, modifier = Modifier.fillMaxWidth().padding(top = 10.dp).height(8.dp), strokeCap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    Text(
+                        if (!hasPhoto && !hasBio) "Add a photo and write a short bio so people know who is behind your posts."
+                        else if (!hasPhoto) "Add a photo so people recognise you on the news feed."
+                        else "Write a short bio so people know who is behind your posts.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp),
+                    )
                 }
             }
 

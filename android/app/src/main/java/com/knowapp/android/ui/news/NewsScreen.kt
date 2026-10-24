@@ -116,47 +116,30 @@ fun NewsScreen(viewModel: NewsViewModel, onBack: () -> Unit, showBack: Boolean =
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (viewModel.canPost) {
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(24.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Avatar(viewModel.userName, size = 46, url = state.myAvatarUrl)
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(start = 12.dp)
-                                        .clip(PillShape)
-                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-                                        .clickable { composing = true }
-                                        .padding(horizontal = 18.dp, vertical = 13.dp),
-                                ) {
-                                    Text(
-                                        "What's happening, ${viewModel.userName.trim().substringBefore(' ').ifBlank { "there" }}?",
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                ComposerAction(Icons.Outlined.Image, "Photo") { composing = true }
-                                ComposerAction(Icons.Outlined.Article, "Announcement") { composing = true }
+                    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(top = 12.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Avatar(viewModel.userName, size = 48, url = state.myAvatarUrl)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(start = 12.dp)
+                                    .clip(PillShape)
+                                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.8f), PillShape)
+                                    .clickable { composing = true }
+                                    .padding(horizontal = 18.dp, vertical = 13.dp),
+                            ) {
+                                Text("Start a post", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
                             }
                         }
+                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            ComposerAction(Icons.Outlined.Image, "Photo") { composing = true }
+                            ComposerAction(Icons.Outlined.Article, "Write article") { composing = true }
+                        }
                     }
-                }
-            }
-            if (state.posts.isNotEmpty()) {
-                item {
-                    Text("Latest news", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp, top = 2.dp))
                 }
             }
             when {
@@ -168,21 +151,22 @@ fun NewsScreen(viewModel: NewsViewModel, onBack: () -> Unit, showBack: Boolean =
                     }
                 }
                 state.posts.isEmpty() -> item {
-                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(modifier = Modifier.size(72.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), CircleShape), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Outlined.Article, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(34.dp))
-                            }
-                            Text("No news yet", fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(top = 16.dp))
-                            Text(
-                                if (viewModel.canPost) "Be the first to share an update with everyone on KNOW." else "Updates from other businesses will show up here.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                                modifier = Modifier.padding(top = 6.dp),
-                            )
-                            if (viewModel.canPost) Button(onClick = { composing = true }, shape = PillShape, modifier = Modifier.padding(top = 18.dp)) { Text("Write a post", fontWeight = FontWeight.SemiBold) }
+                    Column(
+                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(vertical = 44.dp, horizontal = 28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Box(modifier = Modifier.size(72.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), CircleShape), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.Article, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(34.dp))
                         }
+                        Text("No news yet", fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(top = 16.dp))
+                        Text(
+                            if (viewModel.canPost) "Be the first to share an update with everyone on KNOW." else "Updates from other businesses will show up here.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                        if (viewModel.canPost) Button(onClick = { composing = true }, shape = PillShape, modifier = Modifier.padding(top = 18.dp)) { Text("Write a post", fontWeight = FontWeight.SemiBold) }
                     }
                 }
                 else -> items(state.posts, key = { it.id }) { post ->
@@ -261,11 +245,11 @@ fun NewsScreen(viewModel: NewsViewModel, onBack: () -> Unit, showBack: Boolean =
 @Composable
 private fun ComposerAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
     Row(
-        modifier = Modifier.clip(PillShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+        modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(horizontal = 18.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-        Text(label, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.padding(start = 6.dp))
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.padding(start = 8.dp))
     }
 }
 
@@ -277,99 +261,98 @@ private fun PostCard(post: PostOut, mine: Boolean, canAct: Boolean, canComment: 
     var expanded by remember { mutableStateOf(false) }
     var overflowing by remember { mutableStateOf(false) }
 
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Row(modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable(onClick = onAuthor), verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(author, size = 46, url = resolveMediaUrl(post.authorAvatarPath))
-                    Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                        Text(author, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            post.authorInstitution?.takeIf { it.isNotBlank() }?.let {
-                                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                                Text(" · ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Text(relativeDay(post.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                        }
+    // Flat, full-width post like a LinkedIn feed item: header, text, edge-to-edge media, action bar
+    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+        Row(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 14.dp), verticalAlignment = Alignment.Top) {
+            Row(modifier = Modifier.weight(1f).clickable(onClick = onAuthor), verticalAlignment = Alignment.CenterVertically) {
+                Avatar(author, size = 48, url = resolveMediaUrl(post.authorAvatarPath))
+                Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    Text(author, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    post.authorInstitution?.takeIf { it.isNotBlank() }?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
+                    Text(relativeDay(post.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 }
-                if (canAct) {
-                    Box {
-                        IconButton(onClick = { menuOpen = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "More options", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            if (mine) {
-                                DropdownMenuItem(
-                                    text = { Text("Delete post", color = DangerRed) },
-                                    leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = DangerRed) },
-                                    onClick = { menuOpen = false; onDelete() },
-                                )
-                            } else {
-                                DropdownMenuItem(
-                                    text = { Text("Report post") },
-                                    leadingIcon = { Icon(Icons.Outlined.Flag, contentDescription = null) },
-                                    onClick = { menuOpen = false; onReport() },
-                                )
-                            }
+            }
+            if (canAct) {
+                Box {
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(Icons.Filled.MoreVert, contentDescription = "More options", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        if (mine) {
+                            DropdownMenuItem(
+                                text = { Text("Delete post", color = DangerRed) },
+                                leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = DangerRed) },
+                                onClick = { menuOpen = false; onDelete() },
+                            )
+                        } else {
+                            DropdownMenuItem(
+                                text = { Text("Report post") },
+                                leadingIcon = { Icon(Icons.Outlined.Flag, contentDescription = null) },
+                                onClick = { menuOpen = false; onReport() },
+                            )
                         }
                     }
                 }
             }
+        }
 
-            Text(post.title, fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold, fontSize = 19.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp))
+        Text(post.title, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp))
+        Text(
+            post.body,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = if (expanded) Int.MAX_VALUE else 4,
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = { if (!expanded) overflowing = it.hasVisualOverflow },
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp),
+        )
+        if (overflowing || expanded) {
             Text(
-                post.body,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f),
-                maxLines = if (expanded) Int.MAX_VALUE else 4,
-                overflow = TextOverflow.Ellipsis,
-                onTextLayout = { if (!expanded) overflowing = it.hasVisualOverflow },
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp),
+                if (expanded) "Show less" else "…see more",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                modifier = Modifier.clickable { expanded = !expanded }.padding(horizontal = 16.dp, vertical = 6.dp),
             )
-            if (overflowing || expanded) {
-                Text(
-                    if (expanded) "Show less" else "…see more",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    modifier = Modifier.clickable { expanded = !expanded }.padding(horizontal = 16.dp, vertical = 6.dp),
-                )
-            }
+        }
 
-            if (photoUrl != null) {
-                AsyncImage(
-                    model = photoUrl,
-                    contentDescription = "Photo attached to ${post.title}",
-                    contentScale = ContentScale.FillWidth,
-                    modifier = Modifier
-                        .padding(start = 12.dp, end = 12.dp, top = 12.dp)
-                        .fillMaxWidth()
-                        .heightIn(min = 180.dp, max = 520.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { onViewPhoto(photoUrl) },
-                )
-            }
+        if (photoUrl != null) {
+            AsyncImage(
+                model = photoUrl,
+                contentDescription = "Photo attached to ${post.title}",
+                contentScale = ContentScale.FillWidth,
+                modifier = Modifier
+                    .padding(top = 12.dp)
+                    .fillMaxWidth()
+                    .heightIn(min = 180.dp, max = 560.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable { onViewPhoto(photoUrl) },
+            )
+        } else {
+            Box(modifier = Modifier.padding(bottom = 8.dp))
+        }
 
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Row(
-                    modifier = Modifier
-                        .clip(PillShape)
-                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
-                        .clickable(enabled = canComment || post.commentCount > 0) { onComments() }
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                    Text(
-                        when (post.commentCount) { 0 -> "Comment"; 1 -> "1 comment"; else -> "${post.commentCount} comments" },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
+        if (post.commentCount > 0) {
+            Text(
+                if (post.commentCount == 1) "1 comment" else "${post.commentCount} comments",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().clickable { onComments() }.padding(horizontal = 16.dp, vertical = 8.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f), modifier = Modifier.padding(horizontal = 12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.Start,
+        ) {
+            Row(
+                modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(enabled = canComment || post.commentCount > 0) { onComments() }.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                Text("Comment", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.padding(start = 8.dp))
             }
         }
     }
