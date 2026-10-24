@@ -684,3 +684,40 @@ a.stat-card:hover { border-color: var(--brand); transform: translateY(-1px); }
 .sub-usage { text-align: left; margin: 0 0 16px; padding: 12px 14px; border-radius: 12px; background: rgba(128,128,128,.1); }
 .sub-row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 14px; }
 .sub-total { border-top: 1px solid rgba(128,128,128,.3); margin-top: 6px; padding-top: 8px; font-size: 16px; }
+
+.sub-wrap { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.welcome-card { padding: 24px 16px 40px; }
+.sub-welcome { font-size: 15px; font-weight: 600; opacity: .75; margin: 0; text-align: center; }
+.sub-hero { text-align: center; color: #fff; padding: 26px 22px; border-radius: 28px; background: linear-gradient(155deg, #0f766e, #134e4a); box-shadow: 0 14px 34px rgba(15,118,110,.35); }
+.sub-eyebrow { color: #5eead4; font-size: 12px; font-weight: 800; letter-spacing: .18em; margin: 0; }
+.sub-headline { margin: 8px 0 0; font-size: 22px; }
+.sub-ring { --p: 0; width: 168px; height: 168px; margin: 18px auto; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(#5eead4 calc(var(--p) * 1%), rgba(255,255,255,.16) 0); }
+.sub-ring-in { width: 140px; height: 140px; border-radius: 50%; background: #115e59; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.sub-ring-in strong { font-size: 56px; line-height: 1; font-weight: 800; }
+.sub-ring-in span { font-size: 14px; opacity: .8; }
+.sub-lead { font-size: 16px; font-weight: 600; margin: 0 0 12px; }
+.sub-pill { display: inline-block; background: rgba(255,255,255,.16); padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 500; }
+.sub-panel { text-align: left; padding: 20px; border-radius: 22px; border: 1px solid rgba(128,128,128,.25); background: rgba(128,128,128,.06); }
+.sub-panel h3 { margin: 0 0 12px; font-size: 17px; }
+.sub-steps { list-style: none; margin: 0; padding: 0; }
+.sub-steps li { display: flex; gap: 12px; position: relative; padding-bottom: 16px; }
+.sub-steps li:last-child { padding-bottom: 0; }
+.sub-steps li:not(:last-child)::before { content: ""; position: absolute; left: 10px; top: 24px; bottom: 2px; width: 2px; background: rgba(20,184,166,.4); }
+.sub-dot { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--brand); display: grid; place-items: center; font-size: 12px; color: #fff; }
+.is-done .sub-dot { background: var(--brand); }
+.sub-steps strong { display: block; }
+.sub-steps small { opacity: .7; }
+.sub-plan { border: 1.5px solid var(--brand); }
+.sub-chip { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .12em; color: var(--brand); background: rgba(20,184,166,.15); padding: 5px 12px; border-radius: 999px; }
+.sub-amount { font-size: 40px; font-weight: 800; margin: 10px 0; }
+.sub-amount small { font-size: 15px; font-weight: 500; opacity: .7; }
+.sub-checks { list-style: none; margin: 0; padding: 12px 0 0; border-top: 1px solid rgba(128,128,128,.25); display: flex; flex-direction: column; gap: 10px; }
+.sub-checks li { position: relative; padding-left: 30px; }
+.sub-checks li::before { content: "\2713"; position: absolute; left: 0; top: 1px; width: 20px; height: 20px; border-radius: 50%; background: rgba(20,184,166,.18); color: var(--brand); font-size: 12px; font-weight: 800; display: grid; place-items: center; }
+.sub-bar { height: 10px; border-radius: 999px; background: rgba(128,128,128,.25); margin: 8px 0 12px; overflow: hidden; }
+.sub-bar i { display: block; height: 100%; border-radius: 999px; background: var(--brand); }
+.sub-method { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; margin-bottom: 10px; border: 1px solid rgba(128,128,128,.3); border-radius: 16px; opacity: .75; }
+.sub-method small { display: block; opacity: .7; }
+.sub-method em { font-style: normal; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: rgba(128,128,128,.2); }
+.sub-callout { border-left: 4px solid var(--brand); }
+.sub-callout p { margin: 6px 0 0; line-height: 1.5; }

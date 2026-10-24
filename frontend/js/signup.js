@@ -41,7 +41,7 @@ document.getElementById("signupForm").addEventListener("submit", async (e) => {
     const { user_id, role, staff_type, full_name, institution_id, access_token } = data;
     TokenStore.set(access_token);
     Session.set({ user_id, role, staff_type, full_name, institution_id });
-    location.href = homePageFor(role);
+    location.href = "welcome.html";
   } catch (error) {
     err.textContent = error.status === 429 ? "Too many sign-ups from this connection. Please try again later." : (error.message || "Could not create the account. Try again.");
     err.classList.add("visible");

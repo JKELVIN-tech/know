@@ -47,21 +47,7 @@
         </header>
 
         <section class="page is-active" data-page="subscription">
-          <div class="card sub-card" id="subCard">
-            <p class="subtle">Loading...</p>
-          </div>
-          <div class="card sub-card" id="subPlan" hidden>
-            <h3 id="subPlanName">Your plan</h3>
-            <p class="sub-price" id="subPrice"></p>
-            <ul class="sub-list" id="subList"></ul>
-            <div class="sub-usage" id="subUsage" hidden></div>
-            <h3>Pay with</h3>
-            <div class="sub-methods">
-              <button class="ghost-btn" type="button" disabled>M-Pesa (coming soon)</button>
-              <button class="ghost-btn" type="button" disabled>Card (coming soon)</button>
-            </div>
-            <p class="hint" id="subNote"></p>
-          </div>
+          <div class="sub-wrap" id="subRoot"><p class="subtle">Loading...</p></div>
         </section>
       </main>
 
@@ -83,6 +69,7 @@
     <script src="config.js"></script>
     <script src="./js/api.js"></script>
     <script src="./js/ui.js"></script>
+    <script src="./js/billing-view.js"></script>
     <script src="./js/subscription.js"></script>
   </body>
 </html>
