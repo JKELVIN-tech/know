@@ -222,7 +222,7 @@ fun KnowNavGraph(container: AppContainer) {
             SettingsScreen(
                 updateManager = container.updateManager,
                 themeStore = container.themeStore,
-                onOpenSubscription = if (session?.role == "staff") ({ navController.navigate(Routes.SUBSCRIPTION) }) else null,
+                onOpenSubscription = if (session?.role == "staff" || session?.role == "institution_admin") ({ navController.navigate(Routes.SUBSCRIPTION) }) else null,
                 profile = viewModel(factory = vmFactory { com.knowapp.android.ui.settings.ProfileViewModel(container.profileRepository, container.photoStore) }),
                 onSignOut = {
                     container.authRepository.logout()

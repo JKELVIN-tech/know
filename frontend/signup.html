@@ -22,23 +22,54 @@
           <img src="./assets/logo.svg" alt="KNOW logo" />
           <div><strong>KNOW</strong><span>Institution financial audit &amp; records portal</span></div>
         </div>
-        <h2>Create your account</h2>
-        <p class="hint">This is your own private account. It is not linked to any owner or institution.</p>
-        <p class="form-error" id="authError"></p>
-        <form id="signupForm">
-          <label class="field"><span>Account type</span>
-            <select id="signupType" required>
-              <option value="personal">Personal (finance entries only)</option>
-              <option value="staff">Staff (sales and stock)</option>
-            </select>
-          </label>
-          <label class="field"><span>Full name</span><input type="text" id="signupName" autocomplete="name" required autofocus /></label>
-          <label class="field"><span>Username</span><input type="text" id="signupUsername" autocomplete="username" required /></label>
-          <label class="field"><span>Email (optional, for password reset)</span><input type="email" id="signupEmail" autocomplete="email" /></label>
-          <label class="field"><span>Partner code (optional)</span><input type="text" id="signupPartner" autocomplete="off" autocapitalize="characters" /></label>
-          <label class="field"><span>Password</span><input type="password" id="signupPassword" autocomplete="new-password" required /></label>
-          <button class="primary-btn auth-submit" type="submit" id="signupSubmit">Create account</button>
-        </form>
+        <div id="stepPlan">
+          <h2>Choose your account</h2>
+          <p class="hint">Both start with 7 days free. You can pay after that.</p>
+          <button type="button" class="plan-card" data-plan="individual">
+            <span class="plan-tag">Individual</span>
+            <span class="plan-price">KES 200<small>/month</small></span>
+            <span class="plan-line">For one person: your own sales, stock or personal finance.</span>
+            <span class="plan-line plan-muted">Cannot create other accounts.</span>
+          </button>
+          <button type="button" class="plan-card plan-featured" data-plan="owner">
+            <span class="plan-badge">For businesses</span>
+            <span class="plan-tag">Owner</span>
+            <span class="plan-price">KES 500<small>/month</small></span>
+            <span class="plan-line">Run a business and create individual accounts for your team.</span>
+            <span class="plan-line">Includes 5 individual accounts, then KES 200 for each extra one.</span>
+          </button>
+        </div>
+        <div id="stepForm" hidden>
+          <button type="button" class="link-btn" id="changePlan">&larr; Change account type</button>
+          <h2 id="formTitle">Create your account</h2>
+          <p class="hint" id="formHint"></p>
+          <p class="form-error" id="authError"></p>
+          <form id="signupForm">
+            <div id="ownerFields" hidden>
+              <label class="field"><span>Business name</span><input type="text" id="signupBusiness" autocomplete="organization" /></label>
+              <label class="field"><span>Business type</span>
+                <select id="signupBusinessType">
+                  <option value="shop">Shop</option>
+                  <option value="supermarket">Supermarket</option>
+                  <option value="school">School</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+            </div>
+            <label class="field" id="useForField"><span>Use it for</span>
+              <select id="signupType">
+                <option value="staff">Sales and stock</option>
+                <option value="personal">Personal finance</option>
+              </select>
+            </label>
+            <label class="field"><span>Your full name</span><input type="text" id="signupName" autocomplete="name" required /></label>
+            <label class="field"><span>Username</span><input type="text" id="signupUsername" autocomplete="username" required /></label>
+            <label class="field"><span>Email (optional, for password reset)</span><input type="email" id="signupEmail" autocomplete="email" /></label>
+            <label class="field"><span>Partner code (optional)</span><input type="text" id="signupPartner" autocomplete="off" autocapitalize="characters" /></label>
+            <label class="field"><span>Password</span><input type="password" id="signupPassword" autocomplete="new-password" required /></label>
+            <button class="primary-btn auth-submit" type="submit" id="signupSubmit">Start free trial</button>
+          </form>
+        </div>
         <p class="hint"><a href="login.html">Back to log in</a></p>
       </div>
     </div>

@@ -182,7 +182,7 @@ def signup(
     db: Session = Depends(get_db),
     x_client: str | None = Header(None),
 ):
-    """Anyone can open a standalone staff or personal account; it gets its own private workspace and no owner above it."""
+    """Anyone can open an owner account (a business) or an individual account (staff or personal); each gets its own private workspace."""
     if db.query(User).filter(func.lower(User.username) == payload.username.lower()).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
     if payload.email and db.query(User).filter(func.lower(User.email) == payload.email).first():
@@ -194,9 +194,17 @@ def signup(
         if not partner:
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Unknown partner code")
 
-    is_personal = payload.account_type == "personal"
-    # The username is unique, so this workspace name is too
-    workspace = Institution(name=f"{payload.full_name} (@{payload.username})"[:200], type="individual", partner_id=partner.id if partner else None)
+    is_owner = payload.account_type == "owner"
+    if is_owner:
+        if db.query(Institution).filter(func.lower(Institution.name) == payload.business_name.lower()).first():
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A business with this name already exists")
+        workspace = Institution(name=payload.business_name, type=payload.business_type or "shop", partner_id=partner.id if partner else None)
+        role, staff_type = UserRole.INSTITUTION_ADMIN, None
+    else:
+        # The username is unique, so this workspace name is too
+        workspace = Institution(name=f"{payload.full_name} (@{payload.username})"[:200], type="individual", partner_id=partner.id if partner else None)
+        role = UserRole.STAFF
+        staff_type = StaffType.TEACHER if payload.account_type == "personal" else StaffType.GENERAL
     try:
         db.add(workspace)
         db.flush()
@@ -205,18 +213,21 @@ def signup(
             full_name=payload.full_name,
             email=payload.email,
             hashed_password=hash_password(payload.password),
-            role=UserRole.STAFF,
-            staff_type=StaffType.TEACHER if is_personal else StaffType.GENERAL,
+            role=role,
+            staff_type=staff_type,
             institution_id=workspace.id,
         )
         db.add(user)
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already taken")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="That username or business name is already taken")
     db.refresh(user)
     log_activity(db, action="self_signup", actor=user, target_type="user", target_id=user.id,
                  detail=f"Self-registered a {payload.account_type} account", request=request)
+    # Marks the workspace as self-signup so the 7-day trial and plan price apply to it
+    log_activity(db, action="self_signup", actor=user, target_type="institution", target_id=workspace.id,
+                 detail=f"Opened {payload.account_type} workspace '{workspace.name}'", request=request)
 
     lifetime = 60 * 24 * settings.ANDROID_TOKEN_EXPIRE_DAYS if x_client == "android" else None
     token = create_access_token(data={"sub": str(user.id), "role": user.role.value, "tv": user.token_version}, expires_minutes=lifetime)
@@ -225,7 +236,7 @@ def signup(
         access_token=token,
         user_id=user.id,
         role=user.role.value,
-        staff_type=user.staff_type.value,
+        staff_type=user.staff_type.value if user.staff_type else None,
         full_name=user.full_name,
         institution_id=user.institution_id,
     )

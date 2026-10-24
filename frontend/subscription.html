@@ -48,16 +48,13 @@
 
         <section class="page is-active" data-page="subscription">
           <div class="card sub-card" id="subCard">
-            <p class="subtle" id="subLoading">Loading...</p>
+            <p class="subtle">Loading...</p>
           </div>
           <div class="card sub-card" id="subPlan" hidden>
-            <h3>Your plan</h3>
-            <p class="sub-price">Price to be announced</p>
-            <ul class="sub-list">
-              <li>Sales, stock and finance records</li>
-              <li>Works offline and syncs when you are back online</li>
-              <li>Daily summaries and audit trail</li>
-            </ul>
+            <h3 id="subPlanName">Your plan</h3>
+            <p class="sub-price" id="subPrice"></p>
+            <ul class="sub-list" id="subList"></ul>
+            <div class="sub-usage" id="subUsage" hidden></div>
             <h3>Pay with</h3>
             <div class="sub-methods">
               <button class="ghost-btn" type="button" disabled>M-Pesa (coming soon)</button>

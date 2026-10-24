@@ -97,18 +97,36 @@ class SignupRequest(BaseModel):
     account_type: str
     email: str | None = None
     partner_code: str | None = None
+    business_name: str | None = None
+    business_type: str | None = None
 
     @field_validator("email")
     @classmethod
     def email_format(cls, v: str | None) -> str | None:
         return clean_email(v) or None
 
+    @field_validator("business_name")
+    @classmethod
+    def business_name_clean(cls, v: str | None) -> str | None:
+        v = " ".join((v or "").split())
+        if not v:
+            return None
+        if len(v) < 2 or len(v) > 120:
+            raise ValueError("Business name must be 2 to 120 characters")
+        return v
+
+    @field_validator("business_type")
+    @classmethod
+    def business_type_clean(cls, v: str | None) -> str | None:
+        v = (v or "").strip().lower()
+        return v if v in ("shop", "supermarket", "school", "other") else "shop"
+
     @field_validator("account_type")
     @classmethod
     def account_type_valid(cls, v: str) -> str:
         v = v.strip().lower()
-        if v not in ("staff", "personal"):
-            raise ValueError("account_type must be staff or personal")
+        if v not in ("owner", "staff", "personal"):
+            raise ValueError("account_type must be owner, staff or personal")
         return v
 
     @field_validator("full_name")
@@ -130,6 +148,8 @@ class SignupRequest(BaseModel):
     @model_validator(mode="after")
     def password_ok(self):
         check_password(self.password, self.username)
+        if self.account_type == "owner" and not self.business_name:
+            raise ValueError("Enter your business name")
         return self
 
 

@@ -41,8 +41,23 @@ ok("valid partner code accepted", rp.status_code == 201)
 ok("workspace is linked to the partner", _d.query(Institution).get(rp.json()["institution_id"]).partner_id is not None)
 ok("unknown partner code refused", c.post("/api/auth/signup", json=body("badpartner", partner_code="ZZZ999")).status_code == 422)
 sb = c.get("/api/billing/status", headers=h).json()
-ok("new account is on a 7 day trial", sb["applies"] and sb["state"] == "trial" and sb["days_left"] == 7 and sb["amount"] is None)
+ok("new account is on a 7 day trial", sb["applies"] and sb["state"] == "trial" and sb["days_left"] == 7 and sb["plan"] == "individual" and sb["total"] == 200)
 ok("trial ends after the 7 days pass", c.get("/api/billing/status", headers={"authorization": "Bearer " + rp.json()["access_token"]}).json()["days_left"] == 7)
 from datetime import datetime, timedelta, timezone
 _i = _d.query(Institution).get(rp.json()["institution_id"]); _i.created_at = datetime.now(timezone.utc) - timedelta(days=9); _d.commit()
 ok("old account shows trial ended", c.get("/api/billing/status", headers={"authorization": "Bearer " + rp.json()["access_token"]}).json()["state"] == "trial_ended")
+
+ro = c.post("/api/auth/signup", json={**body("owner1", "owner"), "business_name": "Mama Njeri Shop", "business_type": "shop"})
+ok("owner signup 201 as institution admin", ro.status_code == 201 and ro.json()["role"] == "institution_admin")
+ho = {"authorization": "Bearer " + ro.json()["access_token"]}
+so = c.get("/api/billing/status", headers=ho).json()
+ok("owner plan is 500 with 5 included", so["plan"] == "owner" and so["total"] == 500 and so["included_accounts"] == 5 and so["accounts_used"] == 0)
+ok("owner without business name refused", c.post("/api/auth/signup", json=body("owner2", "owner")).status_code == 422)
+ok("duplicate business name refused", c.post("/api/auth/signup", json={**body("owner3", "owner"), "business_name": "mama njeri shop"}).status_code == 409)
+for i in range(7):
+    r_ = c.post("/api/users", json={"username": f"staffer{i}x", "full_name": f"Staff {i}", "password": "Strong#Pass99", "role": "staff", "staff_type": "general"}, headers=ho)
+    assert r_.status_code in (200, 201), r_.text
+so = c.get("/api/billing/status", headers=ho).json()
+ok("7 individual accounts bill 2 extra at 200", so["accounts_used"] == 7 and so["extra_accounts"] == 2 and so["extra_amount"] == 400 and so["total"] == 900)
+rs = c.post("/api/auth/login", data={"username": "staffer0x", "password": "Strong#Pass99"})
+ok("owner's staff are not billed themselves", c.get("/api/billing/status", headers={"authorization": "Bearer " + rs.json()["access_token"]}).json()["applies"] is False)

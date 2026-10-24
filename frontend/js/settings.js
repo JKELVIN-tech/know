@@ -1,5 +1,6 @@
 (async function () {
   const session = await initShell("settings", ["staff", "institution_admin", "super_admin", "agent"]);
+  if (session.role === "institution_admin") $("#planLinkCard").hidden = false;
 
   function roleLabel(role) {
     if (role === "super_admin") return "Super admin";

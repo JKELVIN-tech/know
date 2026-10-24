@@ -489,10 +489,18 @@ data class PartnerDashboard(
 
 data class BillingStatusOut(
     val applies: Boolean,
+    val plan: String? = null,
+    @SerializedName("plan_label") val planLabel: String = "",
     val state: String = "none",
     @SerializedName("trial_days") val trialDays: Int = 7,
     @SerializedName("trial_ends_at") val trialEndsAt: String? = null,
     @SerializedName("days_left") val daysLeft: Int = 0,
-    val amount: String? = null,
+    @SerializedName("base_amount") val baseAmount: Int = 0,
+    @SerializedName("included_accounts") val includedAccounts: Int = 0,
+    @SerializedName("accounts_used") val accountsUsed: Int = 0,
+    @SerializedName("extra_accounts") val extraAccounts: Int = 0,
+    @SerializedName("extra_rate") val extraRate: Int = 200,
+    @SerializedName("extra_amount") val extraAmount: Int = 0,
+    val total: Int = 0,
     val note: String = "",
 )

@@ -83,14 +83,36 @@ fun SubscriptionScreen(viewModel: SubscriptionViewModel, onBack: () -> Unit) {
                             }
                         }
                     }
+                    val owner = status.plan == "owner"
                     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
                         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Your plan", style = MaterialTheme.typography.titleMedium)
-                            Text("Price to be announced", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                            Text("• Sales, stock and finance records")
-                            Text("• Works offline and syncs when you are back online")
-                            Text("• Daily summaries and audit trail")
-                            Text("Pay with", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+                            Text("${status.planLabel} plan", style = MaterialTheme.typography.titleMedium)
+                            Text("KES ${status.baseAmount} / month", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                            if (owner) {
+                                Text("• Sales, stock, audits and finance records for your business")
+                                Text("• Create individual accounts for your team")
+                                Text("• ${status.includedAccounts} individual accounts included, then KES ${status.extraRate} for each extra one")
+                            } else {
+                                Text("• Sales, stock and finance records")
+                                Text("• Works offline and syncs when you are back online")
+                                Text("• Cannot create other accounts")
+                            }
+                        }
+                    }
+                    if (owner) {
+                        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+                            Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Your accounts", style = MaterialTheme.typography.titleMedium)
+                                UsageRow("Individual accounts", "${status.accountsUsed} of ${status.includedAccounts} included")
+                                if (status.extraAccounts > 0) UsageRow("${status.extraAccounts} extra x KES ${status.extraRate}", "KES ${status.extraAmount}")
+                                androidx.compose.material3.HorizontalDivider()
+                                UsageRow("Total per month", "KES ${status.total}", bold = true)
+                            }
+                        }
+                    }
+                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
+                        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Pay with", style = MaterialTheme.typography.titleMedium)
                             OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp)) { Text("M-Pesa (coming soon)") }
                             OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp)) { Text("Card (coming soon)") }
                             Text(status.note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -99,5 +121,13 @@ fun SubscriptionScreen(viewModel: SubscriptionViewModel, onBack: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun UsageRow(label: String, value: String, bold: Boolean = false) {
+    androidx.compose.foundation.layout.Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal)
+        Text(value, fontWeight = if (bold) FontWeight.Bold else FontWeight.SemiBold)
     }
 }
