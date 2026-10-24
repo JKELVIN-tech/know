@@ -37,9 +37,9 @@ private const val PAGE_W = 595
 private const val PAGE_H = 842
 private const val LEFT = 36f
 private const val RIGHT = 559f
-private const val ROW_H = 17f
-private const val FIRST_CAP = 30
-private const val NEXT_CAP = 41
+private const val ROW_H = 22f
+private const val FIRST_CAP = 20
+private const val NEXT_CAP = 30
 
 object StatementPdf {
     private val number = DecimalFormat("#,##0.00")
@@ -57,32 +57,37 @@ object StatementPdf {
         val ink = 0xFF10201D.toInt()
         val muted = 0xFF5D6F6B.toInt()
         val teal = 0xFF0F766E.toInt()
+        val deep = 0xFF134E4A.toInt()
         val rule = 0xFFD9E2E0.toInt()
         val zebra = 0xFFF3F7F6.toInt()
-        val headFill = 0xFFE3F0EE.toInt()
+        val green = 0xFF047857.toInt()
+        val red = 0xFFB91C1C.toInt()
+        val white = 0xFFFFFFFF.toInt()
 
-        fun paint(size: Float, color: Int, bold: Boolean = false, align: Paint.Align = Paint.Align.LEFT) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        fun paint(size: Float, color: Int, bold: Boolean = false, align: Paint.Align = Paint.Align.LEFT, mono: Boolean = false) = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textSize = size
             this.color = color
             textAlign = align
-            typeface = Typeface.create(Typeface.DEFAULT, if (bold) Typeface.BOLD else Typeface.NORMAL)
+            typeface = Typeface.create(if (mono) Typeface.MONOSPACE else Typeface.DEFAULT, if (bold) Typeface.BOLD else Typeface.NORMAL)
         }
         val body = paint(8.5f, ink)
-        val bodyRight = paint(8.5f, ink, align = Paint.Align.RIGHT)
-        val small = paint(7.5f, muted)
-        val smallRight = paint(7.5f, muted, align = Paint.Align.RIGHT)
-        val headText = paint(8f, teal, bold = true)
-        val headRight = paint(8f, teal, bold = true, align = Paint.Align.RIGHT)
+        val small = paint(7f, muted)
+        val label = paint(6.8f, muted, bold = true)
         val fill = Paint().apply { style = Paint.Style.FILL }
         val stroke = Paint().apply { color = rule; strokeWidth = 0.8f }
 
+        // A business shows its name; a personal workspace (named "Name (@user)") shows the account holder instead
+        val business = d.institution?.takeIf { it.isNotBlank() && !it.contains("(@") } ?: d.preparedBy.ifBlank { "Account statement" }
         val showBal = d.lines.firstOrNull()?.balance != null || d.opening != null
-        val inRight = if (showBal) 432f else 494f
-        val outRight = if (showBal) 494f else RIGHT
-        val dateX = LEFT
-        val descX = LEFT + 78f
-        val refX = LEFT + 220f
-        val methX = LEFT + 298f
+
+        // Column positions: Date, Time, Details, Reference, Credit, Debit, Balance
+        val dateX = LEFT + 6f
+        val timeX = LEFT + 64f
+        val detailX = LEFT + 100f
+        val refX = LEFT + 232f
+        val creditRight = if (showBal) 404f else 482f
+        val debitRight = if (showBal) 474f else 557f
+        val balRight = 557f
 
         // How many rows each page holds; the last page keeps room for the totals
         val sizes = mutableListOf<Int>()
@@ -106,58 +111,77 @@ object StatementPdf {
             var y: Float
 
             fun tableHeader(top: Float): Float {
-                fill.color = headFill
-                canvas.drawRect(LEFT, top, RIGHT, top + 22f, fill)
-                val base = top + 14.5f
-                canvas.drawText("Date", dateX + 4f, base, headText)
-                canvas.drawText("Description", descX, base, headText)
-                canvas.drawText("Reference", refX, base, headText)
-                canvas.drawText("Method", methX, base, headText)
-                canvas.drawText("Money in", inRight, base, headRight)
-                canvas.drawText("Money out", outRight, base, headRight)
-                if (showBal) canvas.drawText("Balance", RIGHT - 2f, base, headRight)
-                return top + 22f
+                fill.color = deep
+                canvas.drawRoundRect(LEFT, top, RIGHT, top + 24f, 5f, 5f, fill)
+                val base = top + 15.5f
+                val h = paint(8f, white, bold = true)
+                val hr = paint(8f, white, bold = true, align = Paint.Align.RIGHT)
+                canvas.drawText("Date", dateX, base, h)
+                canvas.drawText("Time", timeX, base, h)
+                canvas.drawText("Details", detailX, base, h)
+                canvas.drawText("Reference", refX, base, h)
+                canvas.drawText("Credit", creditRight, base, hr)
+                canvas.drawText("Debit", debitRight, base, hr)
+                if (showBal) canvas.drawText("Balance", balRight, base, hr)
+                return top + 24f
             }
 
             if (pageIndex == 0) {
+                // Header band: the business name leads
                 fill.color = teal
-                canvas.drawRect(0f, 0f, PAGE_W.toFloat(), 84f, fill)
-                canvas.drawText("KNOW", LEFT, 46f, paint(24f, 0xFFFFFFFF.toInt(), bold = true))
-                canvas.drawText("Account statement", LEFT, 64f, paint(11f, 0xCCFFFFFF.toInt()))
-                canvas.drawText(d.generated, RIGHT, 46f, paint(9f, 0xCCFFFFFF.toInt(), align = Paint.Align.RIGHT))
+                canvas.drawRect(0f, 0f, PAGE_W.toFloat(), 96f, fill)
+                fill.color = 0x14FFFFFF
+                canvas.drawCircle(540f, 8f, 78f, fill)
+                fill.color = 0x10FFFFFF
+                canvas.drawCircle(470f, 100f, 46f, fill)
+                canvas.drawText("ACCOUNT STATEMENT", LEFT, 34f, paint(8f, 0xFF99F6E4.toInt(), bold = true))
+                canvas.drawText(fit(paint(24f, white, bold = true), business, 400f), LEFT, 62f, paint(24f, white, bold = true))
+                canvas.drawText(d.title, LEFT, 80f, paint(10.5f, 0xDDFFFFFF.toInt()))
+                canvas.drawText("Generated", RIGHT, 34f, paint(7.5f, 0xFF99F6E4.toInt(), bold = true, align = Paint.Align.RIGHT))
+                canvas.drawText(d.generated, RIGHT, 48f, paint(9f, white, align = Paint.Align.RIGHT))
 
-                var iy = 112f
-                canvas.drawText(d.institution ?: "Institution", LEFT, iy, paint(15f, ink, bold = true))
-                iy += 17f
-                canvas.drawText(d.title, LEFT, iy, paint(11f, teal, bold = true))
-                iy += 15f
-                canvas.drawText("Account: ${d.account}     Period: ${d.period}", LEFT, iy, paint(9f, muted))
-                iy += 13f
-                val who = listOfNotNull(d.staff?.let { "Staff: $it" }, if (d.preparedBy.isNotBlank()) "Prepared by ${d.preparedBy}" else null).joinToString("     ")
-                if (who.isNotEmpty()) canvas.drawText(who, LEFT, iy, paint(9f, muted))
+                // Details
+                fun meta(x: Float, top: Float, name: String, value: String, maxW: Float) {
+                    canvas.drawText(name.uppercase(), x, top, label)
+                    canvas.drawText(fit(paint(10f, ink, bold = true), value, maxW), x, top + 13f, paint(10f, ink, bold = true))
+                }
+                meta(LEFT, 120f, "Account", d.account, 160f)
+                meta(LEFT + 176f, 120f, "Period", d.period, 190f)
+                meta(LEFT + 380f, 120f, "Prepared by", d.preparedBy.ifBlank { "-" }, 140f)
+                if (d.staff != null) meta(LEFT, 150f, "Staff member", d.staff, 160f)
+                meta(if (d.staff != null) LEFT + 176f else LEFT, 150f, "Entries", d.lines.size.toString(), 160f)
 
+                // Credit and debit lead the summary
                 val boxes = buildList {
-                    if (showBal && d.opening != null) add("Opening balance" to d.opening)
-                    add("Money in" to d.income)
-                    add("Money out" to d.expense)
-                    if (showBal && d.closing != null) add("Closing balance" to d.closing) else add("Net" to (d.income - d.expense))
+                    if (showBal && d.opening != null) add(Triple("Opening balance", d.opening, ink))
+                    add(Triple("Total credit", d.income, green))
+                    add(Triple("Total debit", d.expense, red))
+                    if (showBal && d.closing != null) add(Triple("Closing balance", d.closing, ink)) else add(Triple("Net", d.income - d.expense, ink))
                 }
                 val gap = 8f
                 val boxW = (RIGHT - LEFT - gap * (boxes.size - 1)) / boxes.size
-                boxes.forEachIndexed { i, (label, value) ->
+                boxes.forEachIndexed { i, (name, value, accent) ->
                     val x = LEFT + i * (boxW + gap)
                     fill.color = zebra
-                    canvas.drawRoundRect(x, 176f, x + boxW, 222f, 6f, 6f, fill)
-                    canvas.drawText(label, x + 10f, 194f, small)
-                    canvas.drawText("KES ${number.format(value)}", x + 10f, 212f, paint(10.5f, ink, bold = true))
+                    canvas.drawRoundRect(x, 180f, x + boxW, 228f, 8f, 8f, fill)
+                    fill.color = accent
+                    canvas.drawRoundRect(x, 188f, x + 3f, 220f, 1.5f, 1.5f, fill)
+                    canvas.drawText(name.uppercase(), x + 12f, 198f, label)
+                    canvas.drawText("KES ${number.format(value)}", x + 12f, 216f, paint(11f, accent, bold = true))
                 }
-                y = tableHeader(238f)
+                y = tableHeader(246f)
             } else {
-                canvas.drawText("KNOW  ·  ${d.title}", LEFT, 44f, paint(9f, teal, bold = true))
-                canvas.drawText(d.period, RIGHT, 44f, paint(9f, muted, align = Paint.Align.RIGHT))
-                y = tableHeader(56f)
+                canvas.drawText(fit(paint(9.5f, teal, bold = true), business, 300f), LEFT, 40f, paint(9.5f, teal, bold = true))
+                canvas.drawText("${d.title}  ·  ${d.period}", RIGHT, 40f, paint(8.5f, muted, align = Paint.Align.RIGHT))
+                canvas.drawLine(LEFT, 50f, RIGHT, 50f, stroke)
+                y = tableHeader(62f)
             }
 
+            val detailPaint = paint(8.5f, ink)
+            val refPaint = paint(8f, ink, mono = true)
+            val creditPaint = paint(8.5f, green, bold = true, align = Paint.Align.RIGHT)
+            val debitPaint = paint(8.5f, red, bold = true, align = Paint.Align.RIGHT)
+            val balPaint = paint(8.5f, ink, align = Paint.Align.RIGHT)
             for (i in 0 until count) {
                 val line = d.lines[index++]
                 val r = line.row
@@ -165,42 +189,48 @@ object StatementPdf {
                     fill.color = zebra
                     canvas.drawRect(LEFT, y, RIGHT, y + ROW_H, fill)
                 }
-                val base = y + 11.5f
-                val time = r.time?.format(timeFmt) ?: ""
-                canvas.drawText("${r.date.format(dateFmt)} $time".trim(), dateX + 4f, base, body)
-                val description = listOfNotNull(r.category, r.party ?: r.note).joinToString(" · ")
-                canvas.drawText(fit(body, description, 134f), descX, base, body)
-                canvas.drawText(fit(body, r.reference ?: "-", 74f), refX, base, body)
-                canvas.drawText(r.methodLabel, methX, base, body)
+                val base = y + 14f
+                canvas.drawText(r.date.format(dateFmt), dateX, base, body)
+                canvas.drawText(r.time?.format(timeFmt) ?: "-", timeX, base, body)
+                val description = listOfNotNull(r.category, r.party ?: r.note).joinToString(" · ").ifBlank { "-" }
+                canvas.drawText(fit(detailPaint, description, 124f), detailX, y + 10f, detailPaint)
+                canvas.drawText(r.methodLabel, detailX, y + 19f, small)
+                canvas.drawText(fit(refPaint, r.reference ?: "-", 78f), refX, base, refPaint)
                 val amountText = number.format(r.amount)
-                if (r.type == "income") canvas.drawText(amountText, inRight, base, bodyRight) else canvas.drawText(amountText, outRight, base, bodyRight)
-                line.balance?.let { canvas.drawText(number.format(it), RIGHT - 2f, base, bodyRight) }
+                if (r.type == "income") canvas.drawText(amountText, creditRight, base, creditPaint) else canvas.drawText(amountText, debitRight, base, debitPaint)
+                line.balance?.let { canvas.drawText(number.format(it), balRight, base, balPaint) }
                 y += ROW_H
             }
 
             if (pageIndex == sizes.lastIndex) {
                 if (d.lines.isEmpty()) {
-                    canvas.drawText("No entries for this selection.", LEFT + 4f, y + 14f, small)
+                    canvas.drawText("No entries for this selection.", LEFT + 6f, y + 16f, small)
                     y += ROW_H
                 }
                 y += 6f
-                canvas.drawLine(LEFT, y, RIGHT, y, stroke)
-                y += 14f
-                canvas.drawText("Totals", dateX + 4f, y, paint(9f, ink, bold = true))
-                canvas.drawText(number.format(d.income), inRight, y, paint(9f, ink, bold = true, align = Paint.Align.RIGHT))
-                canvas.drawText(number.format(d.expense), outRight, y, paint(9f, ink, bold = true, align = Paint.Align.RIGHT))
+                canvas.drawLine(LEFT, y, RIGHT, y, paint(1f, ink).apply { strokeWidth = 1.1f })
+                y += 16f
+                val totalPaint = paint(9.5f, ink, bold = true)
+                canvas.drawText("Totals", dateX, y, totalPaint)
+                canvas.drawText(number.format(d.income), creditRight, y, paint(9.5f, green, bold = true, align = Paint.Align.RIGHT))
+                canvas.drawText(number.format(d.expense), debitRight, y, paint(9.5f, red, bold = true, align = Paint.Align.RIGHT))
                 if (showBal && d.closing != null) {
-                    y += 15f
-                    canvas.drawText("Closing balance", dateX + 4f, y, paint(9f, teal, bold = true))
-                    canvas.drawText("KES ${number.format(d.closing)}", RIGHT - 2f, y, paint(9.5f, teal, bold = true, align = Paint.Align.RIGHT))
+                    y += 18f
+                    fill.color = zebra
+                    canvas.drawRoundRect(LEFT, y - 13f, RIGHT, y + 7f, 6f, 6f, fill)
+                    canvas.drawText("Closing balance", dateX, y, paint(9.5f, teal, bold = true))
+                    canvas.drawText("KES ${number.format(d.closing)}", balRight, y, paint(10f, teal, bold = true, align = Paint.Align.RIGHT))
                 }
-                y += 20f
-                canvas.drawText("End of statement. Amounts are in Kenya shillings (KES).", LEFT + 4f, y, small)
+                y += 24f
+                canvas.drawText("End of statement. All amounts are in Kenya shillings (KES). Credit is money in, debit is money out.", LEFT + 6f, y, small)
             }
 
-            canvas.drawLine(LEFT, 812f, RIGHT, 812f, stroke)
-            canvas.drawText("Generated by KNOW  ·  ${d.generated}", LEFT, 826f, small)
-            canvas.drawText("Page ${pageIndex + 1} of ${sizes.size}", RIGHT, 826f, smallRight)
+            // Footer: made by KNOW, with the page number
+            canvas.drawLine(LEFT, 808f, RIGHT, 808f, stroke)
+            val madeBy = paint(8f, muted)
+            canvas.drawText("Made by ", LEFT, 824f, madeBy)
+            canvas.drawText("KNOW", LEFT + madeBy.measureText("Made by "), 824f, paint(8.5f, teal, bold = true))
+            canvas.drawText("Page ${pageIndex + 1} of ${sizes.size}", RIGHT, 824f, paint(8f, muted, align = Paint.Align.RIGHT))
             doc.finishPage(page)
         }
 
