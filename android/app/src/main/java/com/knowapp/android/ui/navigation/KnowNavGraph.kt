@@ -200,6 +200,12 @@ fun KnowNavGraph(container: AppContainer) {
             )
             com.knowapp.android.ui.agent.AgentScreen(viewModel = viewModel)
         }
+        composable(Routes.SUBSCRIPTION) {
+            val viewModel: com.knowapp.android.ui.billing.SubscriptionViewModel = viewModel(
+                factory = vmFactory { com.knowapp.android.ui.billing.SubscriptionViewModel(container.billingRepository) },
+            )
+            com.knowapp.android.ui.billing.SubscriptionScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+        }
         composable(Routes.PROFIT) {
             val viewModel: com.knowapp.android.ui.profit.ProfitViewModel = viewModel(
                 factory = vmFactory { com.knowapp.android.ui.profit.ProfitViewModel(container.profitRepository, container.exchangeRepository) },
@@ -216,6 +222,7 @@ fun KnowNavGraph(container: AppContainer) {
             SettingsScreen(
                 updateManager = container.updateManager,
                 themeStore = container.themeStore,
+                onOpenSubscription = if (session?.role == "staff") ({ navController.navigate(Routes.SUBSCRIPTION) }) else null,
                 profile = viewModel(factory = vmFactory { com.knowapp.android.ui.settings.ProfileViewModel(container.profileRepository, container.photoStore) }),
                 onSignOut = {
                     container.authRepository.logout()

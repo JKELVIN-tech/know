@@ -485,3 +485,14 @@ data class PartnerDashboard(
     val payouts: List<PartnerPayoutRow> = emptyList(),
     val series: List<PartnerSeries> = emptyList(),
 )
+
+
+data class BillingStatusOut(
+    val applies: Boolean,
+    val state: String = "none",
+    @SerializedName("trial_days") val trialDays: Int = 7,
+    @SerializedName("trial_ends_at") val trialEndsAt: String? = null,
+    @SerializedName("days_left") val daysLeft: Int = 0,
+    val amount: String? = null,
+    val note: String = "",
+)

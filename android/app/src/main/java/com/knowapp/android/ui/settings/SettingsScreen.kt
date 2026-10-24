@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(updateManager: UpdateManager, themeStore: ThemeStore, profile: ProfileViewModel, onSignOut: suspend () -> Unit) {
+fun SettingsScreen(updateManager: UpdateManager, themeStore: ThemeStore, profile: ProfileViewModel, onSignOut: suspend () -> Unit, onOpenSubscription: (() -> Unit)? = null) {
     val profileState by profile.state.collectAsState()
     val photoPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri -> if (uri != null) profile.onPhotoPicked(uri) }
     val themeMode by themeStore.mode.collectAsState()
@@ -106,6 +106,19 @@ fun SettingsScreen(updateManager: UpdateManager, themeStore: ThemeStore, profile
                 profileState.message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp)) }
                 Button(onClick = profile::save, enabled = !profileState.saving, shape = PillShape, modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
                     Text(if (profileState.saving) "Saving…" else "Save profile", fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            if (onOpenSubscription != null) {
+                AppCard(modifier = Modifier.fillMaxWidth()) {
+                    Text("Subscription", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "See your free trial and plan details.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+                    )
+                    androidx.compose.material3.OutlinedButton(onClick = onOpenSubscription, modifier = Modifier.fillMaxWidth(), shape = PillShape) { Text("View subscription", fontWeight = FontWeight.SemiBold) }
                 }
             }
             AppCard(modifier = Modifier.fillMaxWidth()) {

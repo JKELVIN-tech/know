@@ -198,6 +198,7 @@ const NAV_ITEMS = {
     { href: "stock.html", nav: "stock", label: "Stock", icon: "stock" },
     { href: "news.html", nav: "news", label: "News", icon: "news" },
     { href: "audit.html", nav: "audit", label: "Audit", icon: "audit" },
+    { href: "subscription.html", nav: "subscription", label: "Plan", icon: "dashboard" },
     { href: "settings.html", nav: "settings", label: "Settings", icon: "settings" },
   ],
   institution_admin: [

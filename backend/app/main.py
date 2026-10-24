@@ -10,7 +10,7 @@ from app.core.bootstrap import ensure_super_admin
 from app.core.config import settings
 from app.core.database import Base, engine, SessionLocal
 from app.core.limiter import limiter
-from app.routers import auth, institutions, users, transactions, audits, posts, reports, moderation, activity_log, stock, mpesa, product_categories, market_analysis, accounting, source_documents, admin_overview, message_imports, exchange, vault, storage_usage, profit, partner, partners_admin
+from app.routers import auth, institutions, users, transactions, audits, posts, reports, moderation, activity_log, stock, mpesa, product_categories, market_analysis, accounting, source_documents, admin_overview, message_imports, exchange, vault, storage_usage, profit, partner, partners_admin, billing
 
 app = FastAPI(
     title="KNOW",
@@ -96,6 +96,7 @@ async def csrf_protection(request: Request, call_next):
 
 
 app.include_router(auth.router)
+app.include_router(billing.router)
 app.include_router(institutions.router)
 app.include_router(users.router)
 app.include_router(transactions.router)

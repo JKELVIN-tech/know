@@ -348,6 +348,7 @@ const Api = {
     parse: (message) => apiFetch("/api/mpesa/parse", { method: "POST", body: { message } }),
   },
 
+  billingStatus: () => apiFetch("/api/billing/status"),
   signup: (body) => apiFetch("/api/auth/signup", { method: "POST", body }),
   forgotPassword: (identifier) => apiFetch("/api/auth/forgot-password", { method: "POST", body: { identifier } }),
   resetPassword: (token, new_password) => apiFetch("/api/auth/reset-password", { method: "POST", body: { token, new_password } }),

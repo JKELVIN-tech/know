@@ -11,6 +11,7 @@ object Routes {
     const val DOCUMENTS = "documents"
     const val IMPORTS = "imports"
     const val PROFIT = "profit"
+    const val SUBSCRIPTION = "subscription"
     const val AGENT = "agent"
     const val OVERVIEW = "overview"
     const val REPORTS = "reports"

@@ -53,6 +53,7 @@ class AppContainer(context: Context) {
     val importsRepository = com.knowapp.android.data.repository.ImportsRepository(apiService)
     val exchangeRepository = com.knowapp.android.data.repository.ExchangeRepository(apiService)
     val profitRepository = com.knowapp.android.data.repository.ProfitRepository(apiService)
+    val billingRepository = com.knowapp.android.data.repository.BillingRepository(apiService)
     val partnerRepository = com.knowapp.android.data.repository.PartnerRepository(apiService)
 
     // Text shared into the app from the Messages app, waiting to be detected on the review screen
