@@ -1,6 +1,27 @@
 package com.knowapp.android.ui.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,6 +56,22 @@ import com.knowapp.android.ui.theme.DisplayFontFamily
 import com.knowapp.android.ui.theme.PillShape
 import kotlinx.coroutines.launch
 
+private val HeroTop = Color(0xFF0F766E)
+private val HeroBottom = Color(0xFF134E4A)
+private val Mint = Color(0xFF5EEAD4)
+
+private fun roleLabel(role: String, staffType: String?): String = when (role) {
+    "super_admin" -> "Super admin"
+    "institution_admin" -> "Owner"
+    "agent" -> "Partner agent"
+    "staff" -> if (staffType == "teacher") "Personal account" else "Staff"
+    else -> role.replace('_', ' ').replaceFirstChar { it.uppercase() }
+}
+
+private fun memberSinceText(iso: String?): String? = runCatching {
+    "Member since " + OffsetDateTime.parse(iso).format(DateTimeFormatter.ofPattern("MMMM yyyy"))
+}.getOrNull()
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(updateManager: UpdateManager, themeStore: ThemeStore, profile: ProfileViewModel, onSignOut: suspend () -> Unit, onOpenSubscription: (() -> Unit)? = null) {
@@ -43,57 +80,92 @@ fun SettingsScreen(updateManager: UpdateManager, themeStore: ThemeStore, profile
     val themeMode by themeStore.mode.collectAsState()
     val state by updateManager.state.collectAsState()
     val scope = rememberCoroutineScope()
-    val installed = "Installed: v${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})"
+    val installed = "v${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})"
 
     val text = when (val s = state) {
-        is UpdateState.Idle -> installed
+        is UpdateState.Idle -> "Installed: $installed"
         is UpdateState.Checking -> "Checking for updates…"
-        is UpdateState.UpToDate -> "$installed. You are on the latest version."
-        is UpdateState.Available -> "$installed. A newer version is available."
-        is UpdateState.Unknown -> "$installed. Could not check the latest version, but you can still download it."
+        is UpdateState.UpToDate -> "Installed: $installed. You are on the latest version."
+        is UpdateState.Available -> "Installed: $installed. A newer version is available."
+        is UpdateState.Unknown -> "Installed: $installed. Could not check the latest version, but you can still download it."
         is UpdateState.Downloading -> "Downloading update… ${s.percent}%"
         is UpdateState.NeedPermission -> "Allow KNOW to install apps in the settings screen that just opened, come back, then tap again."
         is UpdateState.Installing -> "Download complete. Confirm the install on the next screen."
-        is UpdateState.Error -> "$installed. ${s.message}"
+        is UpdateState.Error -> "Installed: $installed. ${s.message}"
     }
     val canInstall = state is UpdateState.Available || state is UpdateState.Unknown || state is UpdateState.NeedPermission || state is UpdateState.Installing
     val busy = state is UpdateState.Checking || state is UpdateState.Downloading
+    val hasPhoto = !profileState.removePhoto && (profileState.newPhoto != null || profileState.avatarUrl != null)
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings", fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold) },
+                title = { Text("Profile", fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp).verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 18.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            // Hero: photo, name, role and business
+            Box(modifier = Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(HeroTop, HeroBottom)), RoundedCornerShape(28.dp)).padding(horizontal = 20.dp, vertical = 26.dp)) {
+                Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(modifier = Modifier.size(104.dp).clickable { photoPicker.launch("image/*") }) {
+                        Box(modifier = Modifier.align(Alignment.Center).border(3.dp, Mint, CircleShape).padding(4.dp)) {
+                            com.knowapp.android.ui.components.UserAvatar(
+                                name = profileState.name.ifBlank { "You" },
+                                avatarUrl = if (profileState.removePhoto) null else (profileState.newPhoto ?: profileState.avatarUrl),
+                                size = 90.dp,
+                            )
+                        }
+                        Box(
+                            modifier = Modifier.align(Alignment.BottomEnd).size(32.dp).background(Mint, CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) { Icon(Icons.Filled.Edit, contentDescription = "Change photo", tint = HeroBottom, modifier = Modifier.size(17.dp)) }
+                    }
+                    Text(
+                        profileState.name.ifBlank { " " },
+                        color = Color.White, fontFamily = DisplayFontFamily, fontWeight = FontWeight.ExtraBold, fontSize = 24.sp,
+                        textAlign = TextAlign.Center, modifier = Modifier.padding(top = 14.dp),
+                    )
+                    Box(modifier = Modifier.padding(top = 8.dp).background(Color.White.copy(alpha = 0.16f), CircleShape).padding(horizontal = 14.dp, vertical = 5.dp)) {
+                        Text(roleLabel(profileState.role, profileState.staffType).uppercase(), color = Mint, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                    }
+                    profileState.institutionName?.takeIf { it.isNotBlank() && !it.contains("(@") }?.let {
+                        Text(it, color = Color.White.copy(alpha = 0.9f), fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp), textAlign = TextAlign.Center)
+                    }
+                    memberSinceText(profileState.memberSince)?.let {
+                        Text(it, color = Color.White.copy(alpha = 0.65f), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                    }
+                    androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 10.dp)) {
+                        androidx.compose.material3.TextButton(onClick = { photoPicker.launch("image/*") }) { Text("Change photo", color = Mint) }
+                        if (hasPhoto) androidx.compose.material3.TextButton(onClick = profile::removePhoto) { Text("Remove", color = Color.White.copy(alpha = 0.75f)) }
+                    }
+                }
+            }
+
+            // Account details
             AppCard(modifier = Modifier.fillMaxWidth()) {
-                Text("Your profile", style = MaterialTheme.typography.titleMedium)
+                Text("Account", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Column(modifier = Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    DetailRow(Icons.Filled.Person, "Username", profileState.username.ifBlank { "-" })
+                    DetailRow(Icons.Filled.Email, "Email", profileState.email ?: "Not added")
+                    profileState.institutionName?.takeIf { it.isNotBlank() && !it.contains("(@") }?.let { DetailRow(Icons.Filled.Home, "Business", it) }
+                }
+            }
+
+            // Bio
+            AppCard(modifier = Modifier.fillMaxWidth()) {
+                Text("About you", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
                     "Your photo and bio show beside your posts on the news feed, which everyone can see.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
+                    modifier = Modifier.padding(top = 4.dp),
                 )
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    com.knowapp.android.ui.components.UserAvatar(
-                        name = profileState.name.ifBlank { "You" },
-                        avatarUrl = if (profileState.removePhoto) null else (profileState.newPhoto ?: profileState.avatarUrl),
-                        size = 76.dp,
-                    )
-                    Column(modifier = Modifier.padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(profileState.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        androidx.compose.material3.TextButton(onClick = { photoPicker.launch("image/*") }) { Text("Change photo") }
-                        if (profileState.avatarUrl != null || profileState.newPhoto != null) {
-                            androidx.compose.material3.TextButton(onClick = profile::removePhoto) { Text("Remove photo") }
-                        }
-                    }
-                }
                 androidx.compose.material3.OutlinedTextField(
                     value = profileState.bio,
                     onValueChange = profile::onBioChange,
@@ -101,7 +173,7 @@ fun SettingsScreen(updateManager: UpdateManager, themeStore: ThemeStore, profile
                     supportingText = { Text("${profileState.bio.length}/300") },
                     minLines = 3,
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(16.dp),
                 )
                 profileState.message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp)) }
                 Button(onClick = profile::save, enabled = !profileState.saving, shape = PillShape, modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
@@ -110,27 +182,33 @@ fun SettingsScreen(updateManager: UpdateManager, themeStore: ThemeStore, profile
             }
 
             if (onOpenSubscription != null) {
-                AppCard(modifier = Modifier.fillMaxWidth()) {
-                    Text("Subscription", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "See your free trial and plan details.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
-                    )
-                    androidx.compose.material3.OutlinedButton(onClick = onOpenSubscription, modifier = Modifier.fillMaxWidth(), shape = PillShape) { Text("View subscription", fontWeight = FontWeight.SemiBold) }
+                androidx.compose.material3.Card(onClick = onOpenSubscription, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+                    androidx.compose.foundation.layout.Row(modifier = Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(44.dp).background(Brush.linearGradient(listOf(HeroTop, HeroBottom)), CircleShape), contentAlignment = Alignment.Center) {
+                            Text("KES", color = Mint, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                        }
+                        Column(modifier = Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                            Text("Subscription", fontWeight = FontWeight.Bold)
+                            Text("Free trial, plan and billing dates", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
+
+            // Appearance
             AppCard(modifier = Modifier.fillMaxWidth()) {
-                Text("Appearance", style = MaterialTheme.typography.titleMedium)
+                Text("Appearance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
                     listOf(ThemeMode.SYSTEM to "System", ThemeMode.LIGHT to "Light", ThemeMode.DARK to "Dark").forEach { (mode, label) ->
                         FilterChip(selected = themeMode == mode, onClick = { themeStore.set(mode) }, label = { Text(label) })
                     }
                 }
             }
+
+            // App update
             AppCard(modifier = Modifier.fillMaxWidth()) {
-                Text("App update", style = MaterialTheme.typography.titleMedium)
+                Text("App update", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 14.dp))
                 Button(
                     onClick = { scope.launch { if (canInstall) updateManager.install() else updateManager.check() } },
@@ -139,11 +217,27 @@ fun SettingsScreen(updateManager: UpdateManager, themeStore: ThemeStore, profile
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text(if (canInstall) "Download and install" else "Check for updates", fontWeight = FontWeight.SemiBold) }
             }
+
             OutlinedButton(
                 onClick = { scope.launch { onSignOut() } },
                 shape = PillShape,
                 modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
             ) { Text("Sign out", fontWeight = FontWeight.SemiBold) }
+            Box(modifier = Modifier.size(12.dp))
+        }
+    }
+}
+
+@Composable
+private fun DetailRow(icon: ImageVector, label: String, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(38.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        }
+        Column(modifier = Modifier.padding(start = 14.dp)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, fontWeight = FontWeight.SemiBold)
         }
     }
 }

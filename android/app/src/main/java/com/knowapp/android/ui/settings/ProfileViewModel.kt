@@ -15,6 +15,12 @@ import kotlinx.coroutines.withContext
 data class ProfileUiState(
     val name: String = "",
     val bio: String = "",
+    val username: String = "",
+    val email: String? = null,
+    val role: String = "",
+    val staffType: String? = null,
+    val institutionName: String? = null,
+    val memberSince: String? = null,
     val avatarUrl: String? = null,
     val newPhoto: Uri? = null,
     val removePhoto: Boolean = false,
@@ -29,7 +35,17 @@ class ProfileViewModel(private val repository: ProfileRepository, private val ph
     init {
         viewModelScope.launch {
             repository.me().onSuccess {
-                _state.value = _state.value.copy(name = it.fullName, bio = it.bio ?: "", avatarUrl = resolveMediaUrl(it.avatarPath))
+                _state.value = _state.value.copy(
+                    name = it.fullName,
+                    bio = it.bio ?: "",
+                    username = it.username,
+                    email = it.email,
+                    role = it.role,
+                    staffType = it.staffType,
+                    institutionName = it.institutionName,
+                    memberSince = it.createdAt,
+                    avatarUrl = resolveMediaUrl(it.avatarPath),
+                )
             }
         }
     }
