@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,6 +33,8 @@ import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.DropdownMenuItem
@@ -113,30 +116,47 @@ fun NewsScreen(viewModel: NewsViewModel, onBack: () -> Unit, showBack: Boolean =
     ) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             if (viewModel.canPost) {
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(24.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     ) {
-                        Avatar(viewModel.userName, url = state.myAvatarUrl)
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 12.dp)
-                                .clip(PillShape)
-                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f), PillShape)
-                                .clickable { composing = true }
-                                .padding(horizontal = 18.dp, vertical = 13.dp),
-                        ) {
-                            Text("Start a post", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
-                        }
-                        IconButton(onClick = { composing = true }) {
-                            Icon(Icons.Outlined.Image, contentDescription = "Add a photo", tint = MaterialTheme.colorScheme.primary)
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Avatar(viewModel.userName, size = 46, url = state.myAvatarUrl)
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(start = 12.dp)
+                                        .clip(PillShape)
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                                        .clickable { composing = true }
+                                        .padding(horizontal = 18.dp, vertical = 13.dp),
+                                ) {
+                                    Text(
+                                        "What's happening, ${viewModel.userName.trim().substringBefore(' ').ifBlank { "there" }}?",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                ComposerAction(Icons.Outlined.Image, "Photo") { composing = true }
+                                ComposerAction(Icons.Outlined.Article, "Announcement") { composing = true }
+                            }
                         }
                     }
+                }
+            }
+            if (state.posts.isNotEmpty()) {
+                item {
+                    Text("Latest news", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp, top = 2.dp))
                 }
             }
             when {
@@ -148,13 +168,21 @@ fun NewsScreen(viewModel: NewsViewModel, onBack: () -> Unit, showBack: Boolean =
                     }
                 }
                 state.posts.isEmpty() -> item {
-                    Column(
-                        modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(36.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Icon(Icons.Outlined.Article, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(34.dp))
-                        Text("No news yet", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp))
-                        if (viewModel.canPost) Text("Be the first to share an update.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(modifier = Modifier.size(72.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), CircleShape), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Outlined.Article, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(34.dp))
+                            }
+                            Text("No news yet", fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.padding(top = 16.dp))
+                            Text(
+                                if (viewModel.canPost) "Be the first to share an update with everyone on KNOW." else "Updates from other businesses will show up here.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                            if (viewModel.canPost) Button(onClick = { composing = true }, shape = PillShape, modifier = Modifier.padding(top = 18.dp)) { Text("Write a post", fontWeight = FontWeight.SemiBold) }
+                        }
                     }
                 }
                 else -> items(state.posts, key = { it.id }) { post ->
@@ -231,6 +259,17 @@ fun NewsScreen(viewModel: NewsViewModel, onBack: () -> Unit, showBack: Boolean =
 }
 
 @Composable
+private fun ComposerAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.clip(PillShape).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+        Text(label, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.padding(start = 6.dp))
+    }
+}
+
+@Composable
 private fun PostCard(post: PostOut, mine: Boolean, canAct: Boolean, canComment: Boolean, onComments: () -> Unit, onDelete: () -> Unit, onReport: () -> Unit, onAuthor: () -> Unit, onViewPhoto: (String) -> Unit) {
     val author = post.authorName ?: "Staff member"
     val photoUrl = resolveMediaUrl(post.imagePath)
@@ -238,92 +277,100 @@ private fun PostCard(post: PostOut, mine: Boolean, canAct: Boolean, canComment: 
     var expanded by remember { mutableStateOf(false) }
     var overflowing by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(modifier = Modifier.weight(1f).clickable(onClick = onAuthor), verticalAlignment = Alignment.CenterVertically) {
-                Avatar(author, url = resolveMediaUrl(post.authorAvatarPath))
-                Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text(author, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        listOfNotNull(post.authorInstitution, relativeDay(post.createdAt)).joinToString(" · "),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            if (canAct) {
-                Box {
-                    IconButton(onClick = { menuOpen = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "More options", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable(onClick = onAuthor), verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(author, size = 46, url = resolveMediaUrl(post.authorAvatarPath))
+                    Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        Text(author, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            post.authorInstitution?.takeIf { it.isNotBlank() }?.let {
+                                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                                Text(" · ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text(relativeDay(post.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        }
                     }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        if (mine) {
-                            DropdownMenuItem(
-                                text = { Text("Delete post", color = DangerRed) },
-                                leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = DangerRed) },
-                                onClick = { menuOpen = false; onDelete() },
-                            )
-                        } else {
-                            DropdownMenuItem(
-                                text = { Text("Report post") },
-                                leadingIcon = { Icon(Icons.Outlined.Flag, contentDescription = null) },
-                                onClick = { menuOpen = false; onReport() },
-                            )
+                }
+                if (canAct) {
+                    Box {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "More options", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            if (mine) {
+                                DropdownMenuItem(
+                                    text = { Text("Delete post", color = DangerRed) },
+                                    leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null, tint = DangerRed) },
+                                    onClick = { menuOpen = false; onDelete() },
+                                )
+                            } else {
+                                DropdownMenuItem(
+                                    text = { Text("Report post") },
+                                    leadingIcon = { Icon(Icons.Outlined.Flag, contentDescription = null) },
+                                    onClick = { menuOpen = false; onReport() },
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
 
-        Text(post.title, fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold, fontSize = 17.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp))
-        Text(
-            post.body,
-            style = MaterialTheme.typography.bodyMedium,
-            maxLines = if (expanded) Int.MAX_VALUE else 4,
-            overflow = TextOverflow.Ellipsis,
-            onTextLayout = { if (!expanded) overflowing = it.hasVisualOverflow },
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp),
-        )
-        if (overflowing || expanded) {
+            Text(post.title, fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold, fontSize = 19.sp, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp))
             Text(
-                if (expanded) "Show less" else "…see more",
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
-                modifier = Modifier.clickable { expanded = !expanded }.padding(horizontal = 16.dp, vertical = 6.dp),
+                post.body,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.88f),
+                maxLines = if (expanded) Int.MAX_VALUE else 4,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { if (!expanded) overflowing = it.hasVisualOverflow },
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp),
             )
-        }
+            if (overflowing || expanded) {
+                Text(
+                    if (expanded) "Show less" else "…see more",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    modifier = Modifier.clickable { expanded = !expanded }.padding(horizontal = 16.dp, vertical = 6.dp),
+                )
+            }
 
-        if (photoUrl != null) {
-            AsyncImage(
-                model = photoUrl,
-                contentDescription = "Photo attached to ${post.title}",
-                contentScale = ContentScale.FillWidth,
-                modifier = Modifier
-                    .padding(top = 12.dp)
-                    .fillMaxWidth()
-                    .heightIn(min = 180.dp, max = 560.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { onViewPhoto(photoUrl) },
-            )
-        } else {
-            Box(modifier = Modifier.padding(bottom = 12.dp))
-        }
-        HorizontalDivider(modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
-        Row(
-            modifier = Modifier.fillMaxWidth().clickable(enabled = canComment || post.commentCount > 0) { onComments() }.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
-            Text(
-                when (post.commentCount) { 0 -> "Comment"; 1 -> "1 comment"; else -> "${post.commentCount} comments" },
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Medium,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(start = 8.dp),
-            )
+            if (photoUrl != null) {
+                AsyncImage(
+                    model = photoUrl,
+                    contentDescription = "Photo attached to ${post.title}",
+                    contentScale = ContentScale.FillWidth,
+                    modifier = Modifier
+                        .padding(start = 12.dp, end = 12.dp, top = 12.dp)
+                        .fillMaxWidth()
+                        .heightIn(min = 180.dp, max = 520.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable { onViewPhoto(photoUrl) },
+                )
+            }
+
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier
+                        .clip(PillShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f))
+                        .clickable(enabled = canComment || post.commentCount > 0) { onComments() }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                    Text(
+                        when (post.commentCount) { 0 -> "Comment"; 1 -> "1 comment"; else -> "${post.commentCount} comments" },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+            }
         }
     }
 }

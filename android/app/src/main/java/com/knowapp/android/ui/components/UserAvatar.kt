@@ -15,7 +15,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
+import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
 
 private val AvatarColors = listOf(Color(0xFF0F766E), Color(0xFF2563EB), Color(0xFF9333EA), Color(0xFFD97706), Color(0xFFDB2777), Color(0xFF475569))
 
@@ -32,16 +34,21 @@ private fun initialsOf(name: String): String {
 @Composable
 fun UserAvatar(name: String, avatarUrl: Any?, size: Dp = 44.dp) {
     val color = AvatarColors[(name.hashCode() and 0x7fffffff) % AvatarColors.size]
+    val initials: @Composable () -> Unit = {
+        Box(modifier = Modifier.size(size).background(color, CircleShape), contentAlignment = Alignment.Center) {
+            Text(initialsOf(name), color = Color.White, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.36f).sp)
+        }
+    }
     if (avatarUrl != null) {
-        AsyncImage(
+        SubcomposeAsyncImage(
             model = avatarUrl,
             contentDescription = name,
             contentScale = ContentScale.Crop,
             modifier = Modifier.size(size).clip(CircleShape).background(color),
-        )
-    } else {
-        Box(modifier = Modifier.size(size).background(color, CircleShape), contentAlignment = Alignment.Center) {
-            Text(initialsOf(name), color = Color.White, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.36f).sp)
+        ) {
+            if (painter.state is AsyncImagePainter.State.Success) SubcomposeAsyncImageContent() else initials()
         }
+    } else {
+        initials()
     }
 }
