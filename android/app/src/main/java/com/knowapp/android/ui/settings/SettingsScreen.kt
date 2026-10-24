@@ -17,6 +17,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Icon
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Brush
@@ -173,45 +175,53 @@ fun SettingsScreen(updateManager: UpdateManager, themeStore: ThemeStore, profile
                 }
             }
 
-            // Account details
-            AppCard(modifier = Modifier.fillMaxWidth()) {
-                Text("Account", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Column(modifier = Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    DetailRow(Icons.Filled.Person, "Username", profileState.username.ifBlank { "-" })
-                    DetailRow(Icons.Filled.Email, "Email", profileState.email ?: "Not added")
-                    profileState.institutionName?.takeIf { it.isNotBlank() && !it.contains("(@") }?.let { DetailRow(Icons.Filled.Home, "Business", it) }
+            // Account details: one grouped list with hairlines between rows
+            AppCard(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp)) {
+                Text("Account", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
+                DetailRow(Icons.Filled.Person, "Username", profileState.username.ifBlank { "-" })
+                androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                DetailRow(Icons.Filled.Email, "Email", profileState.email ?: "Not added")
+                profileState.institutionName?.takeIf { it.isNotBlank() && !it.contains("(@") }?.let {
+                    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                    DetailRow(Icons.Filled.Home, "Business", it)
                 }
             }
 
-            // Bio
+            // About you: bio, with Save only appearing once something has changed
+            val dirty = profileState.bio.trim() != profileState.savedBio || profileState.newPhoto != null || profileState.removePhoto
             AppCard(modifier = Modifier.fillMaxWidth()) {
-                Text("About you", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(
-                    "Your photo and bio show beside your posts on the news feed, which everyone can see.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("About you", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text("${profileState.bio.length}/300", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 androidx.compose.material3.OutlinedTextField(
                     value = profileState.bio,
                     onValueChange = profile::onBioChange,
-                    label = { Text("Bio") },
-                    supportingText = { Text("${profileState.bio.length}/300") },
-                    minLines = 3,
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                    placeholder = { Text("Tell people what you do or sell…") },
+                    minLines = 2,
+                    maxLines = 5,
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                     shape = RoundedCornerShape(16.dp),
                 )
-                profileState.message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp)) }
-                Button(onClick = profile::save, enabled = !profileState.saving, shape = PillShape, modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) {
-                    Text(if (profileState.saving) "Saving…" else "Save profile", fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Shown beside your posts on the news feed, which everyone can see.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                profileState.message?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp)) }
+                androidx.compose.animation.AnimatedVisibility(visible = dirty || profileState.saving) {
+                    Button(onClick = profile::save, enabled = !profileState.saving, shape = PillShape, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                        Text(if (profileState.saving) "Saving…" else "Save changes", fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
 
             if (onOpenSubscription != null) {
                 androidx.compose.material3.Card(onClick = onOpenSubscription, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
-                    androidx.compose.foundation.layout.Row(modifier = Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(modifier = Modifier.size(44.dp).background(Brush.linearGradient(listOf(HeroTop, HeroBottom)), CircleShape), contentAlignment = Alignment.Center) {
-                            Text("KES", color = Mint, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                            Icon(Icons.Filled.Star, contentDescription = null, tint = Mint, modifier = Modifier.size(22.dp))
                         }
                         Column(modifier = Modifier.weight(1f).padding(horizontal = 14.dp)) {
                             Text("Subscription", fontWeight = FontWeight.Bold)
@@ -257,7 +267,7 @@ fun SettingsScreen(updateManager: UpdateManager, themeStore: ThemeStore, profile
 
 @Composable
 private fun DetailRow(icon: ImageVector, label: String, value: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(38.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), CircleShape), contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
         }

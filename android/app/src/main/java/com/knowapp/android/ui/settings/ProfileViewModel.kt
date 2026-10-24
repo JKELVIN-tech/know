@@ -15,6 +15,7 @@ import kotlinx.coroutines.withContext
 data class ProfileUiState(
     val name: String = "",
     val bio: String = "",
+    val savedBio: String = "",
     val username: String = "",
     val email: String? = null,
     val role: String = "",
@@ -38,6 +39,7 @@ class ProfileViewModel(private val repository: ProfileRepository, private val ph
                 _state.value = _state.value.copy(
                     name = it.fullName,
                     bio = it.bio ?: "",
+                    savedBio = (it.bio ?: "").trim(),
                     username = it.username,
                     email = it.email,
                     role = it.role,
@@ -72,6 +74,7 @@ class ProfileViewModel(private val repository: ProfileRepository, private val ph
                     _state.value = _state.value.copy(
                         saving = false,
                         bio = it.bio ?: "",
+                        savedBio = (it.bio ?: "").trim(),
                         avatarUrl = resolveMediaUrl(it.avatarPath),
                         newPhoto = null,
                         removePhoto = false,
