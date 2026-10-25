@@ -182,6 +182,21 @@ class TransactionRepository(
         }
     }
 
+    // Editing a saved entry needs the server (it changes totals and stock), so it is never queued offline
+    suspend fun update(id: Int, fields: Map<String, String>): RecordResult = withContext(Dispatchers.IO) {
+        try {
+            val response = api.updateTransaction(id, fields)
+            if (response.isSuccessful) {
+                DataVersion.bump()
+                RecordResult.Saved
+            } else {
+                RecordResult.Rejected(errorDetail(response.errorBody()?.string(), response.code()))
+            }
+        } catch (e: java.io.IOException) {
+            RecordResult.Rejected("You are offline. Connect to the internet to edit a saved entry.")
+        }
+    }
+
     suspend fun record(draft: NewTransaction): RecordResult = recordInner(draft).also { if (it !is RecordResult.Rejected) DataVersion.bump() }
 
     private suspend fun recordInner(draft: NewTransaction): RecordResult = withContext(Dispatchers.IO) {

@@ -11,6 +11,7 @@ class StockItemCreate(BaseModel):
     unit_price: Decimal | None = None
     quantity: Decimal = Decimal("0")
     branch_id: int | None = None
+    low_stock_threshold: Decimal | None = None
 
     @field_validator("name")
     @classmethod
@@ -18,6 +19,13 @@ class StockItemCreate(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("name is required")
+        return v
+
+    @field_validator("low_stock_threshold")
+    @classmethod
+    def threshold_ok(cls, v: Decimal | None) -> Decimal | None:
+        if v is not None and v < 0:
+            raise ValueError("low stock level cannot be negative")
         return v
 
     @field_validator("quantity")
@@ -37,6 +45,14 @@ class StockItemUpdate(BaseModel):
     description: str | None = None
     unit_price: Decimal | None = None
     branch_id: int | None = None
+    low_stock_threshold: Decimal | None = None
+
+    @field_validator("low_stock_threshold")
+    @classmethod
+    def threshold_ok(cls, v: Decimal | None) -> Decimal | None:
+        if v is not None and v < 0:
+            raise ValueError("low stock level cannot be negative")
+        return v
 
     @field_validator("name")
     @classmethod
@@ -59,4 +75,6 @@ class StockItemOut(BaseModel):
     description: str | None
     unit_price: Decimal | None
     quantity: Decimal
+    low_stock_threshold: Decimal | None = None
     created_at: datetime
+

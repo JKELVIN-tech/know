@@ -126,11 +126,23 @@ app.include_router(partners_admin.router)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
+def ensure_columns():
+    """Adds small new columns to existing Postgres tables so a deploy never waits on a hand-run migration."""
+    if engine.dialect.name != "postgresql":
+        return
+    try:
+        with engine.begin() as conn:
+            conn.exec_driver_sql("ALTER TABLE stock_items ADD COLUMN IF NOT EXISTS low_stock_threshold NUMERIC(12,2)")
+    except Exception as err:
+        logging.getLogger("know.startup").warning("Could not add new columns (%s)", type(err).__name__)
+
+
 @app.on_event("startup")
 def on_startup():
     # In production, prefer Alembic migrations over create_all. This is kept
     # for fast local setup; see README for the migration-based path.
     Base.metadata.create_all(bind=engine)
+    ensure_columns()
     db = SessionLocal()
     try:
         ensure_super_admin(db)

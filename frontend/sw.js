@@ -1,4 +1,6 @@
-const CACHE = "know-v32";
+const CACHE = "know-v34";
+const IMG_CACHE = "know-img-v1";
+const IMG_MAX = 150;
 const ASSETS = [
   "./",
   "./index.html",
@@ -75,7 +77,7 @@ self.addEventListener("install", (e) => {
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== IMG_CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -87,7 +89,24 @@ self.addEventListener("fetch", (e) => {
   // in js/api.js). Let those requests succeed or fail on their own so a
   // real network error isn't masked by a cached HTML page.
   const url = new URL(e.request.url);
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin) {
+    // Pictures from the server (news photos, avatars): show the saved one at once and refresh it quietly
+    if (e.request.destination === "image") {
+      e.respondWith(
+        caches.open(IMG_CACHE).then((cache) => cache.match(e.request).then((hit) => {
+          const live = fetch(e.request).then((res) => {
+            if (res && (res.ok || res.type === "opaque")) {
+              cache.put(e.request, res.clone());
+              cache.keys().then((ks) => { if (ks.length > IMG_MAX) cache.delete(ks[0]); });
+            }
+            return res;
+          }).catch(() => hit);
+          return hit || live;
+        }))
+      );
+    }
+    return;
+  }
 
   // Show the saved copy at once and refresh it in the background; a new deploy appears on the next open.
   e.respondWith(

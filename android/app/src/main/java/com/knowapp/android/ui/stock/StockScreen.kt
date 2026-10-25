@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -66,6 +67,17 @@ import java.math.BigDecimal
 
 private val LOW_STOCK = BigDecimal("5")
 
+// Each item can set its own alert level; items without one use the default of 5
+private fun lowLimit(item: StockItemOut): BigDecimal = item.lowStockThreshold?.toBigDecimalOrNull() ?: LOW_STOCK
+
+private fun isOut(item: StockItemOut) = qtyOf(item) <= BigDecimal.ZERO
+
+private fun isLow(item: StockItemOut) = !isOut(item) && qtyOf(item) <= lowLimit(item)
+
+private const val FILTER_ALL = "All"
+private const val FILTER_LOW = "Low"
+private const val FILTER_OUT = "Out"
+
 private fun qtyOf(item: StockItemOut) = item.quantity.toBigDecimalOrNull() ?: BigDecimal.ZERO
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,6 +95,7 @@ fun StockScreen(
     val state by viewModel.state.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     var query by remember { mutableStateOf("") }
+    var levelFilter by remember { mutableStateOf(FILTER_ALL) }
     var editing by remember { mutableStateOf<StockItemOut?>(null) }
     var showForm by remember { mutableStateOf(false) }
     var showExchange by remember { mutableStateOf(false) }
@@ -102,7 +115,10 @@ fun StockScreen(
             else -> it.branchId == branchId
         }
     }
+    val lowCount = inBranch.count { isLow(it) }
+    val outCount = inBranch.count { isOut(it) }
     val shown = inBranch.filter { query.isBlank() || it.name.contains(query, ignoreCase = true) || (it.categoryName ?: "").contains(query, ignoreCase = true) }
+        .filter { when (levelFilter) { FILTER_LOW -> isLow(it); FILTER_OUT -> isOut(it); else -> true } }
     val totalValue = inBranch.fold(BigDecimal.ZERO) { a, i -> a + (i.unitPrice?.toBigDecimalOrNull() ?: BigDecimal.ZERO).multiply(qtyOf(i)) }
 
     Scaffold(
@@ -160,6 +176,27 @@ fun StockScreen(
                     OutlinedButton(onClick = { viewModel.loadExchange(); showExchange = true }, modifier = Modifier.fillMaxWidth()) {
                         Text(if (state.pendingCount > 0) "Exchange stock (${state.pendingCount})" else "Exchange stock")
                     }
+                    if (lowCount + outCount > 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().background(WarnAmber.copy(alpha = 0.16f), RoundedCornerShape(16.dp)).padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Outlined.Warning, contentDescription = null, tint = WarnAmber, modifier = Modifier.size(22.dp))
+                            Column(modifier = Modifier.padding(start = 12.dp)) {
+                                Text("Time to restock", fontWeight = FontWeight.Bold)
+                                Text(
+                                    listOfNotNull(if (outCount > 0) "$outCount out of stock" else null, if (lowCount > 0) "$lowCount running low" else null).joinToString(" · "),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(FILTER_ALL to "All", FILTER_LOW to "Low ($lowCount)", FILTER_OUT to "Out ($outCount)").forEach { (key, label) ->
+                            androidx.compose.material3.FilterChip(selected = levelFilter == key, onClick = { levelFilter = key }, label = { Text(label) })
+                        }
+                    }
                     OutlinedTextField(
                         value = query, onValueChange = { query = it }, label = { Text("Search items") }, singleLine = true,
                         modifier = Modifier.fillMaxWidth(), shape = SmallRadius,
@@ -214,8 +251,8 @@ fun StockScreen(
             state = state,
             canAssign = viewModel.isOwner && editing?.branchId == null && editing != null,
             onDismiss = { showForm = false },
-            onSave = { name, category, newCategory, description, price, qty, branch ->
-                viewModel.save(editing, name, category, newCategory, description, price, qty, branch) { ok -> if (ok) showForm = false }
+            onSave = { name, category, newCategory, description, price, qty, branch, lowAt ->
+                viewModel.save(editing, name, category, newCategory, description, price, qty, branch, lowAt) { ok -> if (ok) showForm = false }
             },
             onDelete = { item -> viewModel.delete(item) { ok -> if (ok) showForm = false } },
             docCount = editing?.let { state.docCounts[it.id] ?: 0 } ?: 0,
@@ -228,7 +265,7 @@ fun StockScreen(
 @Composable
 private fun StockCard(item: StockItemOut, docCount: Int, onClick: () -> Unit) {
     val qty = qtyOf(item)
-    val low = qty <= LOW_STOCK
+    val low = qty <= lowLimit(item)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -252,7 +289,7 @@ private fun StockCard(item: StockItemOut, docCount: Int, onClick: () -> Unit) {
         Column(horizontalAlignment = Alignment.End) {
             Text(item.unitPrice?.let { kes(it) } ?: "No price", fontWeight = FontWeight.Bold)
             Text(
-                if (low) "${qty.stripTrailingZeros().toPlainString()} left · low" else "${qty.stripTrailingZeros().toPlainString()} in stock",
+                if (qty <= BigDecimal.ZERO) "Out of stock" else if (low) "${qty.stripTrailingZeros().toPlainString()} left · low" else "${qty.stripTrailingZeros().toPlainString()} in stock",
                 style = MaterialTheme.typography.bodySmall,
                 color = if (qty <= BigDecimal.ZERO) DangerRed else if (low) WarnAmber else MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -266,7 +303,7 @@ private fun StockForm(
     editing: StockItemOut?,
     state: StockUiState,
     onDismiss: () -> Unit,
-    onSave: (String, String, String, String, String, String, String) -> Unit,
+    onSave: (String, String, String, String, String, String, String, String) -> Unit,
     canAssign: Boolean = false,
     onDelete: (StockItemOut) -> Unit,
     docCount: Int,
@@ -284,6 +321,7 @@ private fun StockForm(
     var quantity by remember { mutableStateOf("") }
     var confirmDelete by remember { mutableStateOf(false) }
     var branch by remember { mutableStateOf("") }
+    var lowAt by remember { mutableStateOf(editing?.lowStockThreshold?.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString() ?: "") }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -303,6 +341,11 @@ private fun StockForm(
                 value = price, onValueChange = { price = it }, label = { Text("Unit price (KES)") }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(), shape = SmallRadius,
             )
+            OutlinedTextField(
+                value = lowAt, onValueChange = { lowAt = it }, label = { Text("Warn me when stock is at or below") }, placeholder = { Text("5") },
+                supportingText = { Text("Leave empty to use 5") }, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(), shape = SmallRadius,
+            )
             if (editing == null) {
                 OutlinedTextField(
                     value = quantity, onValueChange = { quantity = it }, label = { Text("Starting quantity") }, singleLine = true,
@@ -314,7 +357,7 @@ private fun StockForm(
             OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description (optional)") }, modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
 
             Button(
-                onClick = { onSave(name, category, newCategory, description, price, quantity, branch) },
+                onClick = { onSave(name, category, newCategory, description, price, quantity, branch, lowAt) },
                 enabled = !state.saving,
                 shape = PillShape,
                 modifier = Modifier.fillMaxWidth(),

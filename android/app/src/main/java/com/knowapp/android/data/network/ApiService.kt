@@ -67,6 +67,10 @@ interface ApiService {
         @Part image: MultipartBody.Part?,
     ): Response<TransactionOut>
 
+    @FormUrlEncoded
+    @PATCH("/api/transactions/{id}")
+    suspend fun updateTransaction(@Path("id") id: Int, @FieldMap fields: Map<String, String>): Response<TransactionOut>
+
     @POST("/api/stock")
     suspend fun createStockItem(@Body body: Map<String, @JvmSuppressWildcards Any?>): Response<StockItemOut>
 

@@ -61,3 +61,21 @@ so = c.get("/api/billing/status", headers=ho).json()
 ok("7 individual accounts bill 2 extra at 200", so["accounts_used"] == 7 and so["extra_accounts"] == 2 and so["extra_amount"] == 400 and so["total"] == 900)
 rs = c.post("/api/auth/login", data={"username": "staffer0x", "password": "Strong#Pass99"})
 ok("owner's staff are not billed themselves", c.get("/api/billing/status", headers={"authorization": "Bearer " + rs.json()["access_token"]}).json()["applies"] is False)
+rl = c.post("/api/auth/signup", json={**body("lowtest", "staff")})
+hl = {"authorization": "Bearer " + rl.json()["access_token"]}
+cat = c.post("/api/product-categories", json={"name": "Drinks"}, headers=hl)
+cid = cat.json()["id"]
+it = c.post("/api/stock", json={"name": "Soda", "category_id": cid, "quantity": "10", "low_stock_threshold": "8"}, headers=hl)
+ok("stock item stores its own low level", it.status_code == 201 and float(it.json()["low_stock_threshold"]) == 8)
+iid = it.json()["id"]
+ok("low level can be changed", float(c.patch(f"/api/stock/{iid}", json={"low_stock_threshold": "3"}, headers=hl).json()["low_stock_threshold"]) == 3)
+ok("editing other fields keeps the level", float(c.patch(f"/api/stock/{iid}", json={"description": "cold"}, headers=hl).json()["low_stock_threshold"]) == 3)
+ok("sending null resets to default", c.patch(f"/api/stock/{iid}", json={"low_stock_threshold": None}, headers=hl).json()["low_stock_threshold"] is None)
+ok("negative level refused", c.patch(f"/api/stock/{iid}", json={"low_stock_threshold": "-1"}, headers=hl).status_code == 422)
+_d.add(User(username="boss", full_name="Boss", email="boss@x.test", hashed_password=hash_password("Strong#Pass99"), role=UserRole.SUPER_ADMIN)); _d.commit()
+hb = {"authorization": "Bearer " + c.post("/api/auth/login", data={"username": "boss", "password": "Strong#Pass99"}).json()["access_token"]}
+es = c.get("/api/admin/email-status", headers=hb).json()
+ok("email status says not set up when unset", es["configured"] is False)
+et = c.post("/api/admin/email-test", headers=hb).json()
+ok("test send explains why it failed", et["sent"] is False and "not set up" in (et["reason"] or ""))
+ok("owner cannot read email status", c.get("/api/admin/email-status", headers=ho).status_code == 403)

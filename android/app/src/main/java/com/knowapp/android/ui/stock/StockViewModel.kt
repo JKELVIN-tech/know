@@ -125,6 +125,7 @@ class StockViewModel(
         price: String,
         quantity: String,
         assignBranch: String,
+        lowAt: String,
         onDone: (Boolean) -> Unit,
     ) {
         viewModelScope.launch {
@@ -132,6 +133,7 @@ class StockViewModel(
             val priceValue = price.trim().takeIf { it.isNotEmpty() }?.let { it.toDoubleOrNull() ?: return@launch fail("Enter a valid price.", onDone) }
             val quantityValue = if (editing == null) (quantity.trim().ifEmpty { "0" }.toDoubleOrNull() ?: return@launch fail("Enter a valid quantity.", onDone)) else 0.0
             if (editing == null && quantityValue < 0) return@launch fail("Quantity cannot be negative.", onDone)
+            val lowValue = lowAt.trim().takeIf { it.isNotEmpty() }?.let { it.toDoubleOrNull()?.takeIf { v -> v >= 0 } ?: return@launch fail("Enter a valid low stock level.", onDone) }
 
             _state.value = _state.value.copy(saving = true)
             val categoryId: Int = if (categoryName == NEW_CATEGORY) {
@@ -143,8 +145,8 @@ class StockViewModel(
             }
 
             val description = description.trim().ifBlank { null }
-            val result = if (editing == null) repository.create(name.trim(), categoryId, description, priceValue, quantityValue, if (isOwner) _state.value.branches.firstOrNull { it.name == _state.value.branchFilter }?.id else null)
-            else repository.update(editing.id, name.trim(), categoryId, description, priceValue, _state.value.branches.firstOrNull { it.name == assignBranch }?.id)
+            val result = if (editing == null) repository.create(name.trim(), categoryId, description, priceValue, quantityValue, if (isOwner) _state.value.branches.firstOrNull { it.name == _state.value.branchFilter }?.id else null, lowValue)
+            else repository.update(editing.id, name.trim(), categoryId, description, priceValue, _state.value.branches.firstOrNull { it.name == assignBranch }?.id, lowValue)
 
             result.onSuccess {
                 _state.value = _state.value.copy(saving = false, message = if (editing == null) "Item added." else "Item updated.")

@@ -60,6 +60,7 @@ def create_stock_item(payload: StockItemCreate, request: Request, db: Session = 
         description=payload.description,
         unit_price=payload.unit_price,
         quantity=payload.quantity,
+        low_stock_threshold=payload.low_stock_threshold,
     )
     db.add(item)
     db.commit()
@@ -136,6 +137,9 @@ def update_stock_item(item_id: int, payload: StockItemUpdate, request: Request, 
         item.branch_id = payload.branch_id
     if payload.description is not None:
         item.description = payload.description
+    # Sending the field as null puts the item back on the app default alert level
+    if "low_stock_threshold" in payload.model_fields_set:
+        item.low_stock_threshold = payload.low_stock_threshold
     price_changed = payload.unit_price is not None and payload.unit_price != item.unit_price
     if payload.unit_price is not None:
         item.unit_price = payload.unit_price

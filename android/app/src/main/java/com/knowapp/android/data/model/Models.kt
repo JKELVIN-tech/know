@@ -45,6 +45,7 @@ data class StockItemOut(
     val description: String? = null,
     @SerializedName("unit_price") val unitPrice: String? = null,
     val quantity: String,
+    @SerializedName("low_stock_threshold") val lowStockThreshold: String? = null,
     @SerializedName("created_at") val createdAt: String,
 )
 

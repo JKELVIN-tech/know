@@ -48,9 +48,9 @@ class StockRepository(private val api: ApiService) {
         }
     }
 
-    private suspend fun createRaw(name: String, categoryId: Int, description: String?, unitPrice: Double?, quantity: Double, branchId: Int? = null): Result<StockItemOut> = withContext(Dispatchers.IO) {
+    private suspend fun createRaw(name: String, categoryId: Int, description: String?, unitPrice: Double?, quantity: Double, branchId: Int? = null, lowAt: Double? = null): Result<StockItemOut> = withContext(Dispatchers.IO) {
         try {
-            val body = mapOf<String, Any?>("name" to name, "category_id" to categoryId, "description" to description, "unit_price" to unitPrice, "quantity" to quantity, "branch_id" to branchId)
+            val body = mapOf<String, Any?>("name" to name, "category_id" to categoryId, "description" to description, "unit_price" to unitPrice, "quantity" to quantity, "branch_id" to branchId, "low_stock_threshold" to lowAt)
             val response = api.createStockItem(body)
             val item = response.body()
             if (response.isSuccessful && item != null) Result.success(item)
@@ -60,9 +60,9 @@ class StockRepository(private val api: ApiService) {
         }
     }
 
-    private suspend fun updateRaw(id: Int, name: String, categoryId: Int, description: String?, unitPrice: Double?, branchId: Int? = null): Result<StockItemOut> = withContext(Dispatchers.IO) {
+    private suspend fun updateRaw(id: Int, name: String, categoryId: Int, description: String?, unitPrice: Double?, branchId: Int? = null, lowAt: Double? = null): Result<StockItemOut> = withContext(Dispatchers.IO) {
         try {
-            val body = mapOf<String, Any?>("name" to name, "category_id" to categoryId, "description" to description, "unit_price" to unitPrice, "branch_id" to branchId)
+            val body = mapOf<String, Any?>("name" to name, "category_id" to categoryId, "description" to description, "unit_price" to unitPrice, "branch_id" to branchId, "low_stock_threshold" to lowAt)
             val response = api.updateStockItem(id, body)
             val item = response.body()
             if (response.isSuccessful && item != null) Result.success(item)
@@ -82,9 +82,9 @@ class StockRepository(private val api: ApiService) {
         }
     }
 
-    suspend fun create(name: String, categoryId: Int, description: String?, unitPrice: Double?, quantity: Double, branchId: Int? = null): Result<StockItemOut> = createRaw(name, categoryId, description, unitPrice, quantity, branchId).also { if (it.isSuccess) DataVersion.bump() }
+    suspend fun create(name: String, categoryId: Int, description: String?, unitPrice: Double?, quantity: Double, branchId: Int? = null, lowAt: Double? = null): Result<StockItemOut> = createRaw(name, categoryId, description, unitPrice, quantity, branchId, lowAt).also { if (it.isSuccess) DataVersion.bump() }
 
-    suspend fun update(id: Int, name: String, categoryId: Int, description: String?, unitPrice: Double?, branchId: Int? = null): Result<StockItemOut> = updateRaw(id, name, categoryId, description, unitPrice, branchId).also { if (it.isSuccess) DataVersion.bump() }
+    suspend fun update(id: Int, name: String, categoryId: Int, description: String?, unitPrice: Double?, branchId: Int? = null, lowAt: Double? = null): Result<StockItemOut> = updateRaw(id, name, categoryId, description, unitPrice, branchId, lowAt).also { if (it.isSuccess) DataVersion.bump() }
 
     suspend fun delete(id: Int): Result<Unit> = deleteRaw(id).also { if (it.isSuccess) DataVersion.bump() }
 }

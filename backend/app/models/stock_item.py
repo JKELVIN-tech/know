@@ -24,6 +24,8 @@ class StockItem(Base):
     description = Column(Text, nullable=True)
     unit_price = Column(Numeric(12, 2), nullable=True)
     quantity = Column(Numeric(12, 2), nullable=False, default=0)
+    # Alert level: at or below this many units the item counts as low; null uses the app default
+    low_stock_threshold = Column(Numeric(12, 2), nullable=True)
     # Running average cost of one unit, built from restocks and transfers; null until a cost is known
     avg_cost = Column(Numeric(12, 4), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import require_super_admin
+from app.utils import email as email_util
 from app.models.activity_log import ActivityLog
 from app.models.institution import Institution
 from app.models.post_report import PostReport, ReportStatus
@@ -90,3 +91,23 @@ def overview(db: Session = Depends(get_db), _: User = Depends(require_super_admi
             for l in logs
         ],
     }
+
+
+@router.get("/email-status")
+def email_status(admin: User = Depends(require_super_admin)):
+    """Shows whether password reset mail can be sent and the reason the last message failed."""
+    return {
+        "configured": email_util.email_configured(),
+        "provider": email_util.settings.EMAIL_PROVIDER or None,
+        "from": email_util.settings.EMAIL_FROM or None,
+        "last": email_util.last_result,
+    }
+
+
+@router.post("/email-test")
+def email_test(admin: User = Depends(require_super_admin)):
+    """Sends one test message to the signed-in super admin's own address."""
+    if not admin.email:
+        return {"sent": False, "reason": "Add an email address to your own account first (Settings > Password reset email)"}
+    sent = email_util.send_email(admin.email, "KNOW email test", "This is a test message from KNOW. Password reset emails can be sent.")
+    return {"sent": sent, "reason": None if sent else email_util.last_result.get("error")}

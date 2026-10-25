@@ -83,13 +83,26 @@
     }
   }
 
+  $("#lowOnlyBtn").addEventListener("click", () => { lowOnly = !lowOnly; renderItems(); });
+  const DEFAULT_LOW = 5;
+  let lowOnly = false;
+  const lowLimit = (s) => (s.low_stock_threshold != null ? Number(s.low_stock_threshold) : DEFAULT_LOW);
+  const isOut = (s) => Number(s.quantity) <= 0;
+  const isLow = (s) => !isOut(s) && Number(s.quantity) <= lowLimit(s);
+
   function renderItems() {
     const body = $("#stockBody");
     const loose = items.filter((s) => s.branch_id == null).length;
     $("#unassignedNote").hidden = !(isOwner && loose);
     $("#unassignedNote").textContent = `${loose} item${loose === 1 ? " is" : "s are"} not assigned to a branch yet, so every branch can see ${loose === 1 ? "it" : "them"}. Edit an item to assign it to a branch.`;
     const pick = isOwner ? $("#branchFilter").value : "";
-    const visible = items.filter((s) => (pick === "" ? true : pick === "none" ? s.branch_id == null : String(s.branch_id) === pick));
+    const inBranch = items.filter((s) => (pick === "" ? true : pick === "none" ? s.branch_id == null : String(s.branch_id) === pick));
+    const lowCount = inBranch.filter(isLow).length;
+    const outCount = inBranch.filter(isOut).length;
+    $("#lowBanner").hidden = !(lowCount + outCount);
+    $("#lowBannerText").textContent = [outCount ? `${outCount} out of stock` : "", lowCount ? `${lowCount} running low` : ""].filter(Boolean).join(" · ") + " — time to restock";
+    $("#lowOnlyBtn").textContent = lowOnly ? "Show all items" : "Show low stock only";
+    const visible = lowOnly ? inBranch.filter((s) => isLow(s) || isOut(s)) : inBranch;
     body.innerHTML = visible.length ? visible.map((s) => `
         <tr>
           <td ${isOwner ? "" : "hidden"}>${escapeHtml(s.branch_name || "Unassigned")}</td>
@@ -97,7 +110,7 @@
           <td>${s.category_name ? `<span class="badge">${escapeHtml(s.category_name)}</span>` : "—"}</td>
           <td>${escapeHtml(s.description || "—")}</td>
           <td>${s.unit_price != null ? money(s.unit_price) : "—"}</td>
-          <td>${s.quantity}</td>
+          <td>${s.quantity}${isOut(s) ? ' <span class="stock-flag out">Out</span>' : isLow(s) ? ' <span class="stock-flag low">Low</span>' : ""}</td>
           <td>
             <div class="row-actions">
               <button class="ghost-btn" data-edit="${s.id}">Edit</button>
@@ -143,6 +156,7 @@
         <label class="field"><span>Description (optional)</span><input type="text" id="stockDescription" /></label>
         <label class="field"><span>Unit price (optional, KES)</span><input type="number" id="stockPrice" min="0" step="0.01" /></label>
         <label class="field"><span>Starting quantity</span><input type="number" id="stockQuantity" min="0" step="0.01" value="0" /></label>
+        <label class="field"><span>Warn me when stock is at or below (empty uses 5)</span><input type="number" id="stockLow" min="0" step="0.01" /></label>
         <p class="file-hint">After this, quantity only moves through Receiving (sale) and Paying (restock) entries on Home.</p>
         <div class="form-actions">
           <button type="submit" class="primary-btn" id="stockSubmit">Add item</button>
@@ -168,6 +182,7 @@
           description: $("#stockDescription").value.trim() || null,
           unit_price: $("#stockPrice").value ? parseFloat($("#stockPrice").value) : null,
           quantity: parseFloat($("#stockQuantity").value || 0),
+          low_stock_threshold: $("#stockLow").value ? parseFloat($("#stockLow").value) : null,
           branch_id: isOwner && $("#stockBranch").value ? parseInt($("#stockBranch").value, 10) : undefined,
         });
         Sheet.close();
@@ -202,6 +217,7 @@
         </div>
         <label class="field"><span>Description (optional)</span><input type="text" id="editStockDescription" value="${escapeHtml(item.description || "")}" /></label>
         <label class="field"><span>Unit price (optional, KES)</span><input type="number" id="editStockPrice" min="0" step="0.01" value="${item.unit_price ?? ""}" /></label>
+        <label class="field"><span>Warn me when stock is at or below (empty uses 5)</span><input type="number" id="editStockLow" min="0" step="0.01" value="${item.low_stock_threshold ?? ""}" /></label>
         <p class="file-hint">Current quantity: ${item.quantity} — edit this via a Receiving/Paying entry on Home, not here.</p>
         <div class="form-actions">
           <button type="submit" class="primary-btn" id="editStockSubmit">Save changes</button>
@@ -226,6 +242,7 @@
           category_id: categoryId ? parseInt(categoryId, 10) : undefined,
           description: $("#editStockDescription").value.trim() || null,
           unit_price: $("#editStockPrice").value ? parseFloat($("#editStockPrice").value) : null,
+          low_stock_threshold: $("#editStockLow").value ? parseFloat($("#editStockLow").value) : null,
           branch_id: $("#editStockBranch") && $("#editStockBranch").value ? parseInt($("#editStockBranch").value, 10) : undefined,
         });
         Sheet.close();

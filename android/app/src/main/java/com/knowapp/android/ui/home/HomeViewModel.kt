@@ -141,6 +141,19 @@ class HomeViewModel(
         }
     }
 
+    fun updateTransaction(id: Int, fields: Map<String, String>, onFinished: (String?) -> Unit) {
+        viewModelScope.launch {
+            when (val result = transactions.update(id, fields)) {
+                is RecordResult.Rejected -> onFinished(result.message)
+                else -> {
+                    _state.value = _state.value.copy(message = "Entry updated.")
+                    refresh()
+                    onFinished(null)
+                }
+            }
+        }
+    }
+
     suspend fun checkReference(code: String) = transactions.checkReference(code)
 
     fun saveOpening(cash: Double, mpesa: Double, bank: Double, onFinished: (Boolean) -> Unit) {

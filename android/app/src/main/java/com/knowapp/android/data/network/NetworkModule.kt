@@ -38,9 +38,12 @@ private class AuthInterceptor(private val sessionStore: SessionStore) : Intercep
     }
 }
 
-// Shows the last saved copy of a read when the server is slow to answer (for example waking up), and refreshes it whenever the server does answer
+// Keeps a saved copy of every read: served at once while fresh, refreshed from the server otherwise, and used as the offline copy when the server is slow or unreachable
 private class StaleIfSlowInterceptor(dir: File, private val sessionStore: SessionStore) : Interceptor {
     private val folder = File(dir, "know_reads").also { it.mkdirs() }
+
+    // Copies saved before the latest write are never served as fresh, but still work offline
+    @Volatile private var lastWrite = 0L
 
     private fun fileFor(request: Request): File {
         val raw = "${sessionStore.session.value?.userId}|${request.url}"
@@ -48,28 +51,37 @@ private class StaleIfSlowInterceptor(dir: File, private val sessionStore: Sessio
         return File(folder, name)
     }
 
+    private fun savedResponse(request: Request, saved: File): Response =
+        Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("Saved copy")
+            .body(saved.readBytes().toResponseBody("application/json".toMediaType())).build()
+
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val path = request.url.encodedPath
         if (request.method != "GET") {
             val response = chain.proceed(request)
-            if (response.isSuccessful) folder.listFiles()?.forEach { it.delete() }
+            if (response.isSuccessful) lastWrite = System.currentTimeMillis()
             return response
         }
         if (path.contains("/api/auth") || path.contains("pdf") || path.contains("download")) return chain.proceed(request)
         val saved = fileFor(request)
-        val hasCopy = saved.exists() && System.currentTimeMillis() - saved.lastModified() < 7 * 24 * 3600 * 1000L
+        val now = System.currentTimeMillis()
+        val hasCopy = saved.exists() && now - saved.lastModified() < 7 * 24 * 3600 * 1000L
+        if (hasCopy && now - saved.lastModified() < FRESH_MS && saved.lastModified() > lastWrite) return savedResponse(request, saved)
         val response = try {
             if (hasCopy) chain.withConnectTimeout(2500, TimeUnit.MILLISECONDS).withReadTimeout(2500, TimeUnit.MILLISECONDS).proceed(request) else chain.proceed(request)
         } catch (e: IOException) {
             if (!hasCopy) throw e
-            return Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("Saved copy")
-                .body(saved.readBytes().toResponseBody("application/json".toMediaType())).build()
+            return savedResponse(request, saved)
         }
         if (response.isSuccessful) {
             try { saved.writeBytes(response.peekBody(5_000_000).bytes()) } catch (_: IOException) { }
         }
         return response
+    }
+
+    private companion object {
+        const val FRESH_MS = 30_000L
     }
 }
 

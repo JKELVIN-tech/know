@@ -1,6 +1,27 @@
 (async function () {
   const session = await initShell("settings", ["staff", "institution_admin", "super_admin", "agent"]);
   if (session.role === "institution_admin") $("#planLinkCard").hidden = false;
+  if (session.role === "super_admin") {
+    $("#emailAdminCard").hidden = false;
+    const show = async () => {
+      try {
+        const s = await Api.admin.emailStatus();
+        const last = s.last && s.last.at ? (s.last.ok ? " Last message was sent." : ` Last problem: ${s.last.error}`) : "";
+        $("#emailAdminStatus").textContent = s.configured ? `Set up with ${s.provider}, sending from ${s.from}.${last}` : "Not set up. Add EMAIL_PROVIDER (brevo or resend), EMAIL_API_KEY and EMAIL_FROM to the server settings, then redeploy.";
+      } catch (e) { $("#emailAdminStatus").textContent = "Could not check the email setup."; }
+    };
+    show();
+    $("#emailAdminTest").addEventListener("click", async () => {
+      const msg = $("#emailAdminMsg");
+      msg.hidden = false;
+      msg.textContent = "Sending...";
+      try {
+        const r = await Api.admin.emailTest();
+        msg.textContent = r.sent ? "Test email sent. Check your inbox and spam folder." : `Not sent: ${r.reason}`;
+      } catch (e) { msg.textContent = e.message || "Could not send the test."; }
+      show();
+    });
+  }
 
   function roleLabel(role) {
     if (role === "super_admin") return "Super admin";

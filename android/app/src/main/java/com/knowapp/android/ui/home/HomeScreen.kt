@@ -47,6 +47,7 @@ import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material3.Button
@@ -158,6 +159,7 @@ fun HomeScreen(
     var recordKind by remember { mutableStateOf<String?>(null) }
     var showOpening by remember { mutableStateOf(false) }
     var detail by remember { mutableStateOf<TransactionOut?>(null) }
+    var editing by remember { mutableStateOf<TransactionOut?>(null) }
     var showSuccess by remember { mutableStateOf(false) }
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     LaunchedEffect(showSuccess) {
@@ -316,6 +318,28 @@ fun HomeScreen(
             }
 
             item {
+                val needRestock = state.stock.filter { (it.quantity.toBigDecimalOrNull() ?: BigDecimal.ZERO) <= (it.lowStockThreshold?.toBigDecimalOrNull() ?: BigDecimal("5")) }
+                    .sortedBy { it.quantity.toBigDecimalOrNull() ?: BigDecimal.ZERO }
+                if (needRestock.isNotEmpty()) {
+                    CardShell {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Outlined.Warning, contentDescription = null, tint = WarnAmber, modifier = Modifier.size(22.dp))
+                            Text("Low stock", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 10.dp).weight(1f))
+                            Text("${needRestock.size} ${if (needRestock.size == 1) "item" else "items"}", color = WarnAmber, fontWeight = FontWeight.Bold)
+                        }
+                        needRestock.take(3).forEach { i ->
+                            val q = i.quantity.toBigDecimalOrNull() ?: BigDecimal.ZERO
+                            Row(modifier = Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(i.name, maxLines = 1, modifier = Modifier.weight(1f))
+                                Text(if (q <= BigDecimal.ZERO) "Out" else "${q.stripTrailingZeros().toPlainString()} left", color = if (q <= BigDecimal.ZERO) DangerRed else WarnAmber, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        if (needRestock.size > 3) Text("and ${needRestock.size - 3} more in Stock", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                    }
+                }
+            }
+
+            item {
                 val recent = state.transactions.sortedByDescending { it.createdAt }.take(8)
                 CardShell {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -361,7 +385,8 @@ fun HomeScreen(
         )
     }
 
-    detail?.let { t -> DetailSheet(t) { detail = null } }
+    detail?.let { t -> DetailSheet(t, onEdit = { detail = null; editing = t }) { detail = null } }
+    editing?.let { t -> EditSheet(t, onDismiss = { editing = null }, onSave = { fields, done -> viewModel.updateTransaction(t.id, fields) { error -> if (error == null) editing = null; done(error) } }) }
 
     if (showSuccess) SuccessCheck()
 
@@ -925,7 +950,7 @@ private fun OpeningSheet(cash: String, mpesa: String, bank: String, onDismiss: (
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DetailSheet(t: TransactionOut, onDismiss: () -> Unit) {
+private fun DetailSheet(t: TransactionOut, onEdit: () -> Unit, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val color = if (t.type == "income") IncomeGreen else ExpenseOrange
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = MaterialTheme.colorScheme.surface) {
@@ -950,6 +975,65 @@ private fun DetailSheet(t: TransactionOut, onDismiss: () -> Unit) {
             resolveMediaUrl(t.imagePath)?.let { url ->
                 AsyncImage(model = url, contentDescription = "Attached photo", contentScale = ContentScale.Fit, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)))
             }
+            OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) { Text("Edit this entry", fontWeight = FontWeight.SemiBold) }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditSheet(t: TransactionOut, onDismiss: () -> Unit, onSave: (Map<String, String>, (String?) -> Unit) -> Unit) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val isStock = t.categoryType.equals("stock", ignoreCase = true)
+    var amount by remember { mutableStateOf(t.amount.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString() ?: t.amount) }
+    var category by remember { mutableStateOf(t.category) }
+    var note by remember { mutableStateOf(t.description ?: "") }
+    var method by remember { mutableStateOf(t.method) }
+    var reference by remember { mutableStateOf(t.mpesaCode ?: "") }
+    var quantity by remember { mutableStateOf(t.quantity?.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString() ?: "") }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = MaterialTheme.colorScheme.surface) {
+        Column(
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Edit entry", fontFamily = DisplayFontFamily, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            Text("The date stays the same. Totals and stock update when you save.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedTextField(value = amount, onValueChange = { amount = it }, label = { Text("Amount (KES)") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
+            if (isStock && t.quantity != null) {
+                OutlinedTextField(value = quantity, onValueChange = { quantity = it }, label = { Text("Quantity") }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
+            }
+            if (!isStock) {
+                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Category") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
+            }
+            SimpleDropdown("Method", METHOD_LABELS, methodLabel(method), { method = METHOD_VALUES[METHOD_LABELS.indexOf(it).coerceAtLeast(0)] })
+            if (method != "cash") {
+                OutlinedTextField(value = reference, onValueChange = { reference = it.uppercase() }, label = { Text("Reference (M-Pesa or bank code)") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
+            }
+            OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Note") }, minLines = 2, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
+            error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            Button(
+                enabled = !saving,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    val value = amount.trim().toBigDecimalOrNull()
+                    if (value == null || value.signum() <= 0) { error = "Enter an amount greater than zero."; return@Button }
+                    if (!isStock && category.isBlank()) { error = "Enter a category."; return@Button }
+                    val fields = buildMap {
+                        put("amount", value.toPlainString())
+                        put("method", method)
+                        put("description", note.trim())
+                        put("mpesa_code", if (method == "cash") "" else reference.trim())
+                        if (!isStock) put("category", category.trim())
+                        if (isStock && t.quantity != null) quantity.trim().toBigDecimalOrNull()?.let { put("quantity", it.toPlainString()) }
+                    }
+                    saving = true
+                    error = null
+                    onSave(fields) { problem -> saving = false; error = problem }
+                },
+            ) { Text(if (saving) "Saving…" else "Save changes", fontWeight = FontWeight.SemiBold) }
         }
     }
 }

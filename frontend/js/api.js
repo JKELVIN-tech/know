@@ -170,6 +170,18 @@ function swrWrite(key, data) {
   try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), d: data })); } catch { /* storage full: skip caching */ }
 }
 
+const SWR_MARK = "know_swr_mark";
+
+function swrMark() {
+  try { return Number(localStorage.getItem(SWR_MARK) || 0); } catch { return 0; }
+}
+
+/* After a write the saved copies are kept for offline use but no longer shown as current. */
+function swrMarkStale() {
+  swrEpoch += 1;
+  try { localStorage.setItem(SWR_MARK, String(Date.now())); } catch { /* storage blocked */ }
+}
+
 function swrClear() {
   swrEpoch += 1;
   try {
@@ -201,15 +213,26 @@ async function apiFetch(path, options = {}) {
   const method = options.method || "GET";
   if (method !== "GET") {
     const result = await rawFetch(path, options);
-    swrClear();
+    swrMarkStale();
     return result;
   }
   if (!swrAllowed(path)) return rawFetch(path, options);
   const key = swrKey(path);
   const hit = swrRead(key);
-  if (hit) {
+  if (hit && hit.t > swrMark()) {
     swrRefresh(path, key, hit.d);
     return hit.d;
+  }
+  if (hit) {
+    // Saved before the latest change: ask the server first, and fall back to the saved copy only when offline
+    try {
+      const fresh = await rawFetch(path, options);
+      swrWrite(key, fresh);
+      return fresh;
+    } catch (err) {
+      if (err && err.status === 0) return hit.d;
+      throw err;
+    }
   }
   const epoch = swrEpoch;
   const data = await rawFetch(path, options);
@@ -310,6 +333,8 @@ const Api = {
   },
 
   admin: {
+    emailStatus: () => apiFetch("/api/admin/email-status"),
+    emailTest: () => apiFetch("/api/admin/email-test", { method: "POST" }),
     overview: () => apiFetch("/api/admin/overview"),
     institutions: () => apiFetch("/api/admin/institutions"),
   },

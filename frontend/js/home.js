@@ -10,6 +10,18 @@
   window.addEventListener("online", handleBackOnline);
   window.addEventListener("offline", refreshOfflineBanner);
 
+  async function loadLowStock() {
+    const card = $("#lowStockCard");
+    if (!card || session.staff_type === "teacher") return;
+    try {
+      const items = await Api.stock.list();
+      const low = items.filter((s) => Number(s.quantity) <= (s.low_stock_threshold != null ? Number(s.low_stock_threshold) : 5)).sort((a, b) => Number(a.quantity) - Number(b.quantity));
+      card.hidden = !low.length;
+      $("#lowStockList").innerHTML = low.slice(0, 4).map((s) => `<li><span>${escapeHtml(s.name)}</span><strong class="${Number(s.quantity) <= 0 ? "neg" : "warn"}">${Number(s.quantity) <= 0 ? "Out" : Number(s.quantity) + " left"}</strong></li>`).join("")
+        + (low.length > 4 ? `<li class="subtle">and ${low.length - 4} more in Stock</li>` : "");
+    } catch { card.hidden = true; }
+  }
+
   async function loadData() {
     try {
       transactions = await Api.transactions.list();
@@ -18,6 +30,7 @@
       await loadOpening();
       renderOverview();
       renderRecent();
+      loadLowStock();
     } catch (err) {
       if (err.status === 0) {
         // Offline — fall back to the last data cached on this device.
@@ -146,10 +159,65 @@
         </span>
         ${!t._pending && t.image_path ? `<a class="ghost-btn" href="${Api.transactions.imageUrl(t)}" target="_blank" rel="noopener">Photo</a>` : ""}
         <span class="txn-amount ${t.type === "income" ? "in" : "out"}">${t.type === "income" ? "+" : "−"}${money(t.amount)}</span>
+        ${!t._pending ? `<button type="button" class="ghost-btn edit-txn" data-id="${t.id}">Edit</button>` : ""}
       </li>
     `).join("") : `<li class="empty-state">No transactions recorded yet.</li>`;
 
     paintIcons(list);
+  }
+
+  $("#recentList").addEventListener("click", (e) => {
+    const btn = e.target.closest(".edit-txn");
+    if (!btn) return;
+    const t = transactions.find((x) => String(x.id) === btn.dataset.id);
+    if (t) openEditSheet(t);
+  });
+
+  /* ---------------- Edit a saved entry ---------------- */
+
+  function openEditSheet(t) {
+    const isStock = t.category_type === "STOCK";
+    const opt = (v, label) => `<option value="${v}" ${t.method === v ? "selected" : ""}>${label}</option>`;
+    Sheet.open("Edit entry", `
+      <p class="form-error" id="editMsg"></p>
+      <p class="subtle">The date stays the same. Totals and stock update when you save.</p>
+      <form id="editForm">
+        <label class="field"><span>Amount (KES)</span><input type="number" id="editAmount" min="0.01" step="0.01" required value="${t.amount}" /></label>
+        ${isStock && t.quantity ? `<label class="field"><span>Quantity</span><input type="number" id="editQty" min="0.01" step="0.01" value="${t.quantity}" /></label>` : ""}
+        ${isStock ? "" : `<label class="field"><span>Category</span><input type="text" id="editCategory" required value="${escapeHtml(t.category)}" /></label>`}
+        <label class="field"><span>Method</span><select id="editMethod">${opt("cash", "Cash")}${opt("mpesa", "M-Pesa")}${opt("bank", "Bank")}</select></label>
+        <label class="field"><span>Reference (M-Pesa or bank code)</span><input type="text" id="editRef" value="${escapeHtml(t.mpesa_code || "")}" /></label>
+        <label class="field"><span>Note</span><input type="text" id="editNote" value="${escapeHtml(t.description || "")}" /></label>
+        <button class="primary-btn" type="submit" id="editSubmit">Save changes</button>
+      </form>
+    `);
+    $("#editForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = $("#editMsg");
+      hideFormMessage(msg);
+      const btn = $("#editSubmit");
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      const method = $("#editMethod").value;
+      const payload = {
+        amount: parseFloat($("#editAmount").value),
+        method,
+        mpesa_code: method === "cash" ? "" : $("#editRef").value.trim(),
+        description: $("#editNote").value.trim(),
+      };
+      if (!isStock) payload.category = $("#editCategory").value.trim();
+      if ($("#editQty")) payload.quantity = parseFloat($("#editQty").value);
+      try {
+        await Api.transactions.update(t.id, payload);
+        Sheet.close();
+        toast("Entry updated.");
+        await loadData();
+      } catch (err) {
+        showFormMessage(msg, err.status === 0 ? "You are offline. Connect to the internet to edit a saved entry." : (err.message || "Could not save the changes."));
+        btn.disabled = false;
+        btn.textContent = "Save changes";
+      }
+    });
   }
 
   /* ---------------- Receiving / Paying sheet ---------------- */
