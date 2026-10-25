@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.knowapp.android.data.model.TransactionOut
 import com.knowapp.android.data.repository.TransactionRepository
+import com.knowapp.android.data.repository.RecordResult
 import com.knowapp.android.data.repository.TransactionsResult
 import kotlinx.coroutines.launch
 
@@ -33,6 +34,18 @@ class TransactionsViewModel(private val repository: TransactionRepository) : Vie
                 }
                 is TransactionsResult.Failure -> {
                     uiState = uiState.copy(isLoading = false, errorMessage = result.message)
+                }
+            }
+        }
+    }
+
+    fun update(id: Int, fields: Map<String, String>, onFinished: (String?) -> Unit) {
+        viewModelScope.launch {
+            when (val result = repository.update(id, fields)) {
+                is RecordResult.Rejected -> onFinished(result.message)
+                else -> {
+                    onFinished(null)
+                    refresh()
                 }
             }
         }

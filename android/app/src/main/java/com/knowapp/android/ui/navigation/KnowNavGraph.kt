@@ -190,7 +190,7 @@ fun KnowNavGraph(container: AppContainer) {
                 onToggleHideBalances = { container.themeStore.setHideBalances(!hideBalances) },
                 lastMethod = container.themeStore.lastMethod,
                 onMethodChosen = { container.themeStore.rememberMethod(it) },
-                onSeeAll = { goTab(Routes.STATEMENTS) },
+                onSeeAll = { navController.navigate(Routes.HISTORY) },
                 onToggleTheme = { makeDark -> container.themeStore.set(if (makeDark) ThemeMode.DARK else ThemeMode.LIGHT) },
             )
         }
@@ -199,6 +199,10 @@ fun KnowNavGraph(container: AppContainer) {
                 factory = vmFactory { com.knowapp.android.ui.agent.AgentViewModel(container.partnerRepository) },
             )
             com.knowapp.android.ui.agent.AgentScreen(viewModel = viewModel)
+        }
+        composable(Routes.HISTORY) {
+            val viewModel: TransactionsViewModel = viewModel(factory = vmFactory { TransactionsViewModel(container.transactionRepository) })
+            TransactionsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }
         composable(Routes.SUBSCRIPTION) {
             val viewModel: com.knowapp.android.ui.billing.SubscriptionViewModel = viewModel(

@@ -35,11 +35,13 @@ fun TransactionsScreen(
     onBack: () -> Unit,
 ) {
     val state = viewModel.uiState
+    var detail by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<TransactionOut?>(null) }
+    var editing by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<TransactionOut?>(null) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Transactions") },
+                title = { Text("All entries") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -68,13 +70,16 @@ fun TransactionsScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    items(state.transactions, key = { it.id }) { txn ->
-                        TransactionRow(txn)
+                    items(state.transactions.sortedByDescending { it.transactionDate }, key = { it.id }) { txn ->
+                        com.knowapp.android.ui.home.TransactionRow(txn) { detail = txn }
                     }
                 }
             }
         }
     }
+
+    detail?.let { t -> com.knowapp.android.ui.home.DetailSheet(t, onEdit = { detail = null; editing = t }) { detail = null } }
+    editing?.let { t -> com.knowapp.android.ui.home.EditSheet(t, onDismiss = { editing = null }, onSave = { fields, done -> viewModel.update(t.id, fields) { error -> if (error == null) editing = null; done(error) } }) }
 }
 
 @Composable

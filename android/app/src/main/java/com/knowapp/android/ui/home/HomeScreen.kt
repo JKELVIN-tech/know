@@ -160,6 +160,12 @@ fun HomeScreen(
     var showOpening by remember { mutableStateOf(false) }
     var detail by remember { mutableStateOf<TransactionOut?>(null) }
     var editing by remember { mutableStateOf<TransactionOut?>(null) }
+    val appContext = androidx.compose.ui.platform.LocalContext.current
+    val askNotify = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(state.stock) {
+        if (state.stock.isEmpty()) return@LaunchedEffect
+        com.knowapp.android.data.LowStockNotifier.check(appContext, state.stock) { askNotify.launch(android.Manifest.permission.POST_NOTIFICATIONS) }
+    }
     var showSuccess by remember { mutableStateOf(false) }
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     LaunchedEffect(showSuccess) {
@@ -518,7 +524,7 @@ private fun PendingRow(p: PendingTransaction, onDiscard: (String) -> Unit) {
 }
 
 @Composable
-private fun TransactionRow(t: TransactionOut, onClick: () -> Unit) {
+internal fun TransactionRow(t: TransactionOut, onClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -950,7 +956,7 @@ private fun OpeningSheet(cash: String, mpesa: String, bank: String, onDismiss: (
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DetailSheet(t: TransactionOut, onEdit: () -> Unit, onDismiss: () -> Unit) {
+internal fun DetailSheet(t: TransactionOut, onEdit: () -> Unit, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val color = if (t.type == "income") IncomeGreen else ExpenseOrange
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = MaterialTheme.colorScheme.surface) {
@@ -982,7 +988,7 @@ private fun DetailSheet(t: TransactionOut, onEdit: () -> Unit, onDismiss: () -> 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun EditSheet(t: TransactionOut, onDismiss: () -> Unit, onSave: (Map<String, String>, (String?) -> Unit) -> Unit) {
+internal fun EditSheet(t: TransactionOut, onDismiss: () -> Unit, onSave: (Map<String, String>, (String?) -> Unit) -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isStock = t.categoryType.equals("stock", ignoreCase = true)
     var amount by remember { mutableStateOf(t.amount.toBigDecimalOrNull()?.stripTrailingZeros()?.toPlainString() ?: t.amount) }
