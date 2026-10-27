@@ -18,7 +18,10 @@ import com.knowapp.android.data.repository.AuthRepository
 import com.knowapp.android.data.repository.InstitutionsRepository
 import com.knowapp.android.data.repository.InstitutionsResult
 import com.knowapp.android.data.repository.NewTransaction
+import com.knowapp.android.data.repository.NewSale
 import com.knowapp.android.data.repository.RecordResult
+import com.knowapp.android.data.repository.SaleLine
+import com.knowapp.android.ui.receipt.ReceiptBuilder
 import com.knowapp.android.data.repository.StockRepository
 import com.knowapp.android.data.repository.StockResult
 import com.knowapp.android.data.repository.TransactionRepository
@@ -36,6 +39,7 @@ data class HomeUiState(
     val opening: OpeningBalancesOut = OpeningBalancesOut("0", "0", "0", false),
     val stock: List<StockItemOut> = emptyList(),
     val institutionName: String? = null,
+    val lastReceipt: com.knowapp.android.ui.receipt.ReceiptData? = null,
     val saving: Boolean = false,
     val loaded: Boolean = false,
     val recordError: String? = null,
@@ -129,7 +133,12 @@ class HomeViewModel(
             val path = photo?.let { withContext(Dispatchers.IO) { photos.import(it) } }
             when (val result = transactions.record(draft.copy(imagePath = path))) {
                 is RecordResult.Saved, is RecordResult.Queued -> {
-                    _state.value = _state.value.copy(saving = false, message = "Saved.")
+                    val receipt = if (result is RecordResult.Saved && transactions.lastCreated.isNotEmpty()) {
+                        ReceiptBuilder.fromTransactions(transactions.lastCreated, businessName(), servedByName())
+                    } else {
+                        ReceiptBuilder.fromSale(NewSale(draft.type, draft.method, draft.description, draft.mpesaCode, draft.mpesaPayerName, listOf(SaleLine(draft.categoryType, draft.category, draft.stockItemId, draft.quantity, draft.amount)), java.util.UUID.randomUUID().toString()), businessName(), servedByName())
+                    }
+                    _state.value = _state.value.copy(saving = false, message = null, lastReceipt = receipt)
                     refresh()
                     onFinished(true)
                 }
@@ -140,6 +149,40 @@ class HomeViewModel(
             }
         }
     }
+
+    fun recordSale(sale: NewSale, photo: Uri?, onFinished: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            _state.value = _state.value.copy(saving = true, recordError = null)
+            val path = photo?.let { withContext(Dispatchers.IO) { photos.import(it) } }
+            when (val result = transactions.recordSale(sale, path)) {
+                is RecordResult.Saved, is RecordResult.Queued -> {
+                    val receipt = if (result is RecordResult.Saved && transactions.lastCreated.isNotEmpty()) {
+                        ReceiptBuilder.fromTransactions(transactions.lastCreated, businessName(), servedByName())
+                    } else {
+                        ReceiptBuilder.fromSale(sale, businessName(), servedByName())
+                    }
+                    _state.value = _state.value.copy(saving = false, message = null, lastReceipt = receipt)
+                    refresh()
+                    onFinished(true)
+                }
+                is RecordResult.Rejected -> {
+                    _state.value = _state.value.copy(saving = false, recordError = result.message)
+                    onFinished(false)
+                }
+            }
+        }
+    }
+
+    fun clearReceipt() {
+        _state.value = _state.value.copy(lastReceipt = null)
+    }
+
+    // The business shown at the top of every receipt, and who made the sale
+    fun businessName(): String = _state.value.institutionName?.takeIf { it.isNotBlank() && !it.contains("(@") } ?: session.value?.fullName ?: "KNOW"
+
+    fun servedByName(): String = session.value?.fullName ?: ""
+
+    fun receiptFor(entries: List<TransactionOut>): com.knowapp.android.ui.receipt.ReceiptData = ReceiptBuilder.fromTransactions(entries, businessName(), servedByName())
 
     fun updateTransaction(id: Int, fields: Map<String, String>, onFinished: (String?) -> Unit) {
         viewModelScope.launch {

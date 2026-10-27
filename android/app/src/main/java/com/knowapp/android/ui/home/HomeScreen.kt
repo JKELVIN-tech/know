@@ -69,6 +69,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -160,6 +163,7 @@ fun HomeScreen(
     var showOpening by remember { mutableStateOf(false) }
     var detail by remember { mutableStateOf<TransactionOut?>(null) }
     var editing by remember { mutableStateOf<TransactionOut?>(null) }
+    var viewingReceipt by remember { mutableStateOf<com.knowapp.android.ui.receipt.ReceiptData?>(null) }
     val appContext = androidx.compose.ui.platform.LocalContext.current
     val askNotify = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
     LaunchedEffect(state.stock) {
@@ -346,7 +350,7 @@ fun HomeScreen(
             }
 
             item {
-                val recent = state.transactions.sortedByDescending { it.createdAt }.take(8)
+                val recent = state.transactions.sortedByDescending { it.createdAt }.groupBy { it.batchId ?: "t${it.id}" }.values.take(8).toList()
                 CardShell {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("Recent activity", style = MaterialTheme.typography.titleMedium)
@@ -361,9 +365,15 @@ fun HomeScreen(
                     }
                     // Pending rows are tinted until the server has them, then they appear as normal rows
                     state.pending.forEach { PendingRow(it, viewModel::discardPending) }
-                    recent.forEachIndexed { index, t ->
+                    recent.forEachIndexed { index, group ->
                         if (index > 0 || state.pending.isNotEmpty()) HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
-                        TransactionRow(t) { detail = t }
+                        ReceiptRow(
+                            group = group,
+                            onOpen = { if (group.size == 1) detail = group[0] else viewingReceipt = viewModel.receiptFor(group) },
+                            onView = { viewingReceipt = viewModel.receiptFor(group) },
+                            onPrint = { com.knowapp.android.ui.receipt.ReceiptPdf.print(appContext, viewModel.receiptFor(group)) },
+                            onEdit = if (group.size == 1) ({ editing = group[0] }) else null,
+                        )
                     }
                 }
             }
@@ -385,7 +395,8 @@ fun HomeScreen(
             recentCategories = sameKind.map { it.category }.filter { it.isNotBlank() }.distinct().take(4),
             onMethodChosen = onMethodChosen,
             onDismiss = { recordKind = null },
-            onSubmit = { draft, photo -> viewModel.record(draft, photo) { ok -> if (ok) { recordKind = null; showSuccess = true } } },
+            onSubmit = { draft, photo -> viewModel.record(draft, photo) { ok -> if (ok) recordKind = null } },
+            onSubmitSale = { sale, photo -> viewModel.recordSale(sale, photo) { ok -> if (ok) recordKind = null } },
             onCheckCode = { code -> viewModel.checkReference(code) },
             serverError = state.recordError,
         )
@@ -394,7 +405,10 @@ fun HomeScreen(
     detail?.let { t -> DetailSheet(t, onEdit = { detail = null; editing = t }) { detail = null } }
     editing?.let { t -> EditSheet(t, onDismiss = { editing = null }, onSave = { fields, done -> viewModel.updateTransaction(t.id, fields) { error -> if (error == null) editing = null; done(error) } }) }
 
-    if (showSuccess) SuccessCheck()
+    state.lastReceipt?.let { r ->
+        com.knowapp.android.ui.receipt.SavedDialog(r, onView = { viewingReceipt = r; viewModel.clearReceipt() }, onDone = { viewModel.clearReceipt() })
+    }
+    viewingReceipt?.let { r -> com.knowapp.android.ui.receipt.ReceiptSheet(r) { viewingReceipt = null } }
 
     if (showOpening) {
         OpeningSheet(
@@ -542,6 +556,39 @@ internal fun TransactionRow(t: TransactionOut, onClick: () -> Unit) {
     }
 }
 
+@Composable
+private fun ReceiptRow(group: List<TransactionOut>, onOpen: () -> Unit, onView: () -> Unit, onPrint: () -> Unit, onEdit: (() -> Unit)?) {
+    val first = group.first()
+    val total = group.fold(BigDecimal.ZERO) { a, t -> a + (t.amount.toBigDecimalOrNull() ?: BigDecimal.ZERO) }
+    var menu by remember { mutableStateOf(false) }
+    val title = if (group.size == 1) first.category else group.take(2).joinToString(", ") { it.category } + if (group.size > 2) " +${group.size - 2}" else ""
+    val info = "${methodLabel(first.method)} · ${dayLabel(first.transactionDate)}" + if (group.size > 1) " · ${group.size} items" else if (first.imagePath != null) " · photo" else ""
+    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(start = 0.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        RowIcon(first.type, first.category)
+        Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
+            Text(title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text(info, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Text(
+            "${if (first.type == "income") "+" else "\u2212"}${kes(total.toPlainString())}",
+            color = if (first.type == "income") IncomeGreen else ExpenseOrange,
+            fontWeight = FontWeight.Bold,
+        )
+        Box {
+            androidx.compose.material3.IconButton(onClick = { menu = true }) {
+                Icon(Icons.Filled.Menu, contentDescription = "Receipt options", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text("View receipt") }, onClick = { menu = false; onView() })
+                androidx.compose.material3.DropdownMenuItem(text = { Text("Print receipt") }, onClick = { menu = false; onPrint() })
+                if (onEdit != null) androidx.compose.material3.DropdownMenuItem(text = { Text("Edit entry") }, onClick = { menu = false; onEdit() })
+            }
+        }
+    }
+}
+
+private data class CartLine(val useStock: Boolean, val name: String, val stockItemId: Int?, val quantity: String?, val amount: BigDecimal)
+
 private val INCOME_SUGGESTIONS = listOf("Fees", "Sales", "Donation", "Other")
 private val EXPENSE_SUGGESTIONS = listOf("Rent", "Salaries", "Transport", "Utilities", "Supplies", "Other")
 
@@ -614,6 +661,7 @@ private fun RecordSheet(
     onMethodChosen: (String) -> Unit,
     onDismiss: () -> Unit,
     onSubmit: (NewTransaction, Uri?) -> Unit,
+    onSubmitSale: (com.knowapp.android.data.repository.NewSale, Uri?) -> Unit,
     onCheckCode: suspend (String) -> com.knowapp.android.data.model.ReferenceCheckOut?,
     serverError: String? = null,
 ) {
@@ -635,6 +683,7 @@ private fun RecordSheet(
     var error by remember { mutableStateOf<String?>(null) }
     var duplicate by remember { mutableStateOf<com.knowapp.android.data.model.ReferenceCheckOut?>(null) }
     var warningText by remember { mutableStateOf<String?>(null) }
+    var afterWarning by remember { mutableStateOf<(() -> Unit)?>(null) }
     var photoUri by remember { mutableStateOf<Uri?>(null) }
     var captureUri by remember { mutableStateOf<Uri?>(null) }
     val context = LocalContext.current
@@ -685,6 +734,54 @@ private fun RecordSheet(
     val computed = if (useStock && item?.unitPrice != null && qty != null) item.unitPrice.toBigDecimalOrNull()?.multiply(qty) else null
     val shownTotal = amount.toBigDecimalOrNull() ?: computed
 
+    // Several items can be added to one payment; every item keeps its own price and quantity
+    val cart = remember { mutableStateListOf<CartLine>() }
+    val batchId = remember { java.util.UUID.randomUUID().toString() }
+    val touched = amount.isNotBlank() || quantity.isNotBlank() || itemName.isNotBlank()
+
+    fun readLine(): CartLine? {
+        val chosen = amount.toBigDecimalOrNull() ?: computed
+        val problem = when {
+            useStock && item == null -> "Choose a stock item."
+            useStock && (qty == null || qty <= BigDecimal.ZERO) -> "Enter a quantity."
+            !useStock && category.isBlank() -> "Type what this item is, for example Sugar or Delivery."
+            chosen == null || chosen <= BigDecimal.ZERO -> "Enter an amount."
+            else -> null
+        }
+        error = problem
+        if (problem != null) return null
+        return CartLine(useStock, if (useStock) item!!.name else category.trim(), if (useStock) item!!.id else null, if (useStock) quantity else null, chosen!!)
+    }
+
+    fun addToCart() {
+        val line = readLine() ?: return
+        cart.add(line)
+        amount = ""
+        quantity = ""
+        itemName = ""
+        category = ""
+        error = null
+    }
+
+    val pendingAmount = if (touched) (shownTotal ?: BigDecimal.ZERO) else BigDecimal.ZERO
+    val cartTotal = cart.fold(BigDecimal.ZERO) { a, l -> a + l.amount } + pendingAmount
+
+    fun submitSaleNow(all: List<CartLine>) {
+        onMethodChosen(method)
+        onSubmitSale(
+            com.knowapp.android.data.repository.NewSale(
+                type = kind,
+                method = method,
+                description = description.trim().ifBlank { null },
+                mpesaCode = if (method != "cash") reference.trim().ifBlank { null } else null,
+                mpesaPayerName = if (method != "cash") payer.trim().ifBlank { null } else null,
+                lines = all.map { com.knowapp.android.data.repository.SaleLine(if (it.useStock) "STOCK" else "OTHER", it.name, it.stockItemId, it.quantity, it.amount.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()) },
+                batchId = batchId,
+            ),
+            photoUri,
+        )
+    }
+
     fun submitNow(chosenAmount: BigDecimal) {
         onMethodChosen(method)
         onSubmit(
@@ -719,8 +816,29 @@ private fun RecordSheet(
                 }
             }
 
+            if (cart.isNotEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().background(accent.copy(alpha = 0.08f), RoundedCornerShape(16.dp)).padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    SectionLabel("Items in this ${if (isIncome) "sale" else "payment"} (${cart.size})")
+                    cart.forEachIndexed { i, l ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(l.name, fontWeight = FontWeight.SemiBold)
+                                if (l.quantity != null) Text("${l.quantity} item${if (l.quantity == "1") "" else "s"}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text(kes(l.amount.toPlainString()), fontWeight = FontWeight.Bold)
+                            androidx.compose.material3.IconButton(onClick = { cart.removeAt(i) }) {
+                                Icon(Icons.Filled.Close, contentDescription = "Remove ${l.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            }
+
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SectionLabel("Amount")
+                SectionLabel(if (cart.isEmpty()) "Amount" else "Next item amount")
                 OutlinedTextField(
                     value = amount,
                     onValueChange = { amount = it },
@@ -760,6 +878,21 @@ private fun RecordSheet(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(), shape = SmallRadius,
                     )
                 }
+            }
+
+            if (!useStock) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Item or category") }, placeholder = { Text("What is this for?") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ((recentCategories + if (isIncome) INCOME_SUGGESTIONS else EXPENSE_SUGGESTIONS).distinct()).take(8).forEach { suggestion ->
+                            FilterChip(selected = category == suggestion, onClick = { category = suggestion }, label = { Text(suggestion) })
+                        }
+                    }
+                }
+            }
+
+            OutlinedButton(onClick = { addToCart() }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(14.dp)) {
+                Text(if (cart.isEmpty()) "+ Add another item to this ${if (isIncome) "sale" else "payment"}" else "+ Add this item and another", fontWeight = FontWeight.SemiBold)
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -835,38 +968,35 @@ private fun RecordSheet(
                 }
             }
 
-            // Optional extras stay out of the way until asked for
-            if (!useStock) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { showCategory = !showCategory }.padding(vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(if (category.isBlank()) "Add a category (optional)" else "Category: $category", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                        Icon(
-                            if (showCategory) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    if (showCategory) {
-                        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ((recentCategories + if (isIncome) INCOME_SUGGESTIONS else EXPENSE_SUGGESTIONS).distinct()).take(8).forEach { suggestion ->
-                                FilterChip(selected = category == suggestion, onClick = { category = suggestion }, label = { Text(suggestion) })
-                            }
-                        }
-                        OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Or type your own") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = SmallRadius)
-                    }
-                }
-            }
-
             (error ?: serverError)?.let {
                 Text(it, color = DangerRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().background(DangerRed.copy(alpha = 0.12f), SmallRadius).padding(12.dp))
             }
 
+            if (cart.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().background(accent.copy(alpha = 0.12f), RoundedCornerShape(16.dp)).padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Total (${cart.size + if (touched) 1 else 0} items)", fontWeight = FontWeight.Bold)
+                    Text(kes(cartTotal.toPlainString()), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+                }
+            }
+
             Button(
                 onClick = {
+                  if (cart.isNotEmpty()) {
+                    val extra = if (touched) readLine() else null
+                    if (!touched || extra != null) {
+                        val all = cart.toList() + listOfNotNull(extra)
+                        val warnings = buildList {
+                            if (duplicate?.exists == true) add("This code was already recorded. Make sure this is a different payment.")
+                            if (method == "mpesa" && reference.trim().length < 8) add("There is no M-Pesa transaction code on this entry.")
+                            if (method == "cash" && all.none { it.useStock } && description.isBlank() && photoUri == null) add("There is no note or photo on this entry as proof.")
+                        }
+                        if (warnings.isEmpty()) submitSaleNow(all) else { afterWarning = { submitSaleNow(all) }; warningText = warnings.joinToString("\n\n") }
+                    }
+                  } else {
                     val chosenAmount = amount.toBigDecimalOrNull() ?: computed
                     error = when {
                         useStock && item == null -> "Choose a stock item."
@@ -884,6 +1014,7 @@ private fun RecordSheet(
                         }
                         if (warnings.isNotEmpty()) warningText = warnings.joinToString("\n\n") else submitNow(chosenAmount!!)
                     }
+                  }
                 },
                 enabled = !saving,
                 shape = PillShape,
@@ -891,7 +1022,7 @@ private fun RecordSheet(
                 modifier = Modifier.fillMaxWidth().height(54.dp),
             ) {
                 Text(
-                    if (saving) "Saving…" else if (shownTotal != null && shownTotal > BigDecimal.ZERO) "Save · ${kes(shownTotal)}" else "Save",
+                    if (saving) "Saving…" else if (cart.isNotEmpty()) "Save · ${kes(cartTotal.toPlainString())}" else if (shownTotal != null && shownTotal > BigDecimal.ZERO) "Save · ${kes(shownTotal)}" else "Save",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                 )
@@ -907,11 +1038,15 @@ private fun RecordSheet(
             confirmButton = {
                 TextButton(onClick = {
                     warningText = null
-                    val finalAmount = amount.toBigDecimalOrNull() ?: computed
-                    if (finalAmount != null && finalAmount > BigDecimal.ZERO) submitNow(finalAmount)
+                    val go = afterWarning
+                    afterWarning = null
+                    if (go != null) go() else {
+                        val finalAmount = amount.toBigDecimalOrNull() ?: computed
+                        if (finalAmount != null && finalAmount > BigDecimal.ZERO) submitNow(finalAmount)
+                    }
                 }) { Text("Save anyway") }
             },
-            dismissButton = { TextButton(onClick = { warningText = null }) { Text("Go back") } },
+            dismissButton = { TextButton(onClick = { warningText = null; afterWarning = null }) { Text("Go back") } },
         )
     }
 }

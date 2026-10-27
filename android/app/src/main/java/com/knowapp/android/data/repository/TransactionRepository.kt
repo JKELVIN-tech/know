@@ -41,6 +41,27 @@ data class NewTransaction(
     val mpesaCode: String?,
     val mpesaPayerName: String?,
     val imagePath: String? = null,
+    val batchId: String? = null,
+)
+
+// One line of a sale or purchase made of several items
+data class SaleLine(
+    val categoryType: String,
+    val category: String?,
+    val stockItemId: Int?,
+    val quantity: String?,
+    val amount: String,
+)
+
+// Several items paid for together: one receipt, one payment
+data class NewSale(
+    val type: String,
+    val method: String,
+    val description: String?,
+    val mpesaCode: String?,
+    val mpesaPayerName: String?,
+    val lines: List<SaleLine>,
+    val batchId: String,
 )
 
 sealed class RecordResult {
@@ -92,10 +113,11 @@ private fun NewTransaction.toFields(): Map<String, String> = buildMap {
     quantity?.takeIf { it.isNotBlank() }?.let { put("quantity", it) }
     mpesaCode?.takeIf { it.isNotBlank() }?.let { put("mpesa_code", it) }
     mpesaPayerName?.takeIf { it.isNotBlank() }?.let { put("mpesa_payer_name", it) }
+    batchId?.takeIf { it.isNotBlank() }?.let { put("batch_id", it) }
 }
 
 private fun PendingTransaction.toFields(): Map<String, String> = NewTransaction(
-    type, method, categoryType, category, description, amount, stockItemId, quantity, mpesaCode, mpesaPayerName,
+    type, method, categoryType, category, description, amount, stockItemId, quantity, mpesaCode, mpesaPayerName, batchId = batchId,
 ).toFields()
 
 class TransactionRepository(
@@ -106,6 +128,9 @@ class TransactionRepository(
     private val isOnline: () -> Boolean = { true },
 ) {
     private val pendingLock = Mutex()
+
+    // What the server created for the last save, so a receipt can show real numbers and times
+    @Volatile var lastCreated: List<TransactionOut> = emptyList()
 
     private suspend fun send(fields: Map<String, String>, imagePath: String?): Response<TransactionOut> {
         val parts = fields.mapValues { it.value.toRequestBody("text/plain".toMediaType()) }
@@ -197,6 +222,48 @@ class TransactionRepository(
         }
     }
 
+    // Online, every item is saved together or not at all; offline, each item is kept on the phone with the same receipt id
+    suspend fun recordSale(sale: NewSale, photoPath: String?): RecordResult = withContext(Dispatchers.IO) {
+        val uid = userId() ?: return@withContext RecordResult.Rejected("You are signed out. Please sign in again.")
+        suspend fun queueAll(): RecordResult {
+            sale.lines.forEachIndexed { index, line ->
+                enqueue(uid, NewTransaction(sale.type, sale.method, line.categoryType, line.category, sale.description, line.amount, line.stockItemId, line.quantity, sale.mpesaCode, sale.mpesaPayerName, if (index == 0) photoPath else null, sale.batchId))
+            }
+            DataVersion.bump()
+            return RecordResult.Queued
+        }
+        if (!isOnline()) return@withContext queueAll()
+        val body = mapOf(
+            "batch_id" to sale.batchId,
+            "type" to sale.type,
+            "method" to sale.method,
+            "description" to sale.description,
+            "mpesa_code" to sale.mpesaCode,
+            "mpesa_payer_name" to sale.mpesaPayerName,
+            "lines" to sale.lines.map { mapOf("category_type" to it.categoryType, "category" to it.category, "stock_item_id" to it.stockItemId, "quantity" to it.quantity, "amount" to it.amount) },
+        )
+        val payload = com.google.gson.Gson().toJson(body).toRequestBody("application/json".toMediaType())
+        val image = photoPath?.let { File(it) }?.takeIf { it.exists() }?.let {
+            MultipartBody.Part.createFormData("image", it.name, it.asRequestBody("image/jpeg".toMediaType()))
+        }
+        try {
+            val response = api.createBatch(payload, image)
+            when {
+                response.code() == 401 -> queueAll()
+                response.isSuccessful -> {
+                    photos.delete(photoPath)
+                    lastCreated = response.body() ?: emptyList()
+                    DataVersion.bump()
+                    RecordResult.Saved
+                }
+                else -> RecordResult.Rejected(errorDetail(response.errorBody()?.string(), response.code()))
+            }
+        } catch (e: IOException) {
+            // Nothing is queued here: the same receipt id makes pressing Save again safe
+            RecordResult.Rejected("Could not reach the server. Your items are still here. Check your connection and press Save again.")
+        }
+    }
+
     suspend fun record(draft: NewTransaction): RecordResult = recordInner(draft).also { if (it !is RecordResult.Rejected) DataVersion.bump() }
 
     private suspend fun recordInner(draft: NewTransaction): RecordResult = withContext(Dispatchers.IO) {
@@ -208,6 +275,7 @@ class TransactionRepository(
             if (response.code() == 401) return@withContext enqueue(uid, draft)
             photos.delete(draft.imagePath)
             if (response.isSuccessful) {
+                lastCreated = listOfNotNull(response.body())
                 RecordResult.Saved
             } else {
                 RecordResult.Rejected(errorDetail(response.errorBody()?.string(), response.code()))
@@ -233,6 +301,7 @@ class TransactionRepository(
                     mpesaPayerName = draft.mpesaPayerName,
                     createdAt = Instant.now().toString(),
                     imagePath = draft.imagePath,
+                    batchId = draft.batchId,
                 )
                 store.savePending(uid, store.pending(uid) + queued)
             }

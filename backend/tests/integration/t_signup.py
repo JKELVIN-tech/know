@@ -79,3 +79,11 @@ ok("email status says not set up when unset", es["configured"] is False)
 et = c.post("/api/admin/email-test", headers=hb).json()
 ok("test send explains why it failed", et["sent"] is False and "not set up" in (et["reason"] or ""))
 ok("owner cannot read email status", c.get("/api/admin/email-status", headers=ho).status_code == 403)
+import uuid as _u
+bid = _u.uuid4().hex
+_f = {"type": "income", "method": "cash", "category_type": "OTHER", "batch_id": bid}
+a1 = c.post("/api/transactions", data={**_f, "category": "Tea", "amount": "50"}, headers=h)
+a2 = c.post("/api/transactions", data={**_f, "category": "Bread", "amount": "60"}, headers=h)
+ok("single entries can share a receipt id", a1.status_code == 201 and a2.status_code == 201 and a1.json()["batch_id"] == bid == a2.json()["batch_id"])
+bb = c.post("/api/transactions/batch", data={"payload": '{"batch_id": "' + _u.uuid4().hex + '", "type": "income", "method": "mpesa", "mpesa_code": "QWE123RTY9", "lines": [{"category": "Soap", "amount": "120"}, {"category": "Rice", "amount": "300"}]}'}, headers=h)
+ok("batch saves every line under one receipt id", bb.status_code == 201 and len(bb.json()) == 2 and bb.json()[0]["batch_id"] == bb.json()[1]["batch_id"])

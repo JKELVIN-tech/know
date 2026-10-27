@@ -30,6 +30,7 @@ data class TransactionOut(
     @SerializedName("mpesa_payer_name") val mpesaPayerName: String? = null,
     @SerializedName("transaction_date") val transactionDate: String,
     @SerializedName("image_path") val imagePath: String? = null,
+    @SerializedName("batch_id") val batchId: String? = null,
     @SerializedName("recorded_by_id") val recordedById: Int,
     @SerializedName("created_at") val createdAt: String,
 )
@@ -210,6 +211,7 @@ data class PendingTransaction(
     val failed: Boolean = false,
     val error: String? = null,
     val imagePath: String? = null,
+    val batchId: String? = null,
 )
 
 

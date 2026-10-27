@@ -67,6 +67,13 @@ interface ApiService {
         @Part image: MultipartBody.Part?,
     ): Response<TransactionOut>
 
+    @Multipart
+    @POST("/api/transactions/batch")
+    suspend fun createBatch(
+        @Part("payload") payload: RequestBody,
+        @Part image: MultipartBody.Part?,
+    ): Response<List<TransactionOut>>
+
     @FormUrlEncoded
     @PATCH("/api/transactions/{id}")
     suspend fun updateTransaction(@Path("id") id: Int, @FieldMap fields: Map<String, String>): Response<TransactionOut>

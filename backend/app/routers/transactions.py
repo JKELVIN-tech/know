@@ -126,6 +126,7 @@ def create_transaction(
     quantity: Decimal | None = Form(None),
     mpesa_code: str | None = Form(None),
     mpesa_payer_name: str | None = Form(None),
+    batch_id: str | None = Form(None),
     image: UploadFile | None = File(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_institution_scope),
@@ -167,6 +168,8 @@ def create_transaction(
         transaction_date=datetime.now(timezone.utc),
         image_path=image_path,
         recorded_by_id=current_user.id,
+        # Items sold together while offline arrive one by one, so they carry the receipt id with them
+        batch_id=(batch_id.strip() if batch_id and 8 <= len(batch_id.strip()) <= 36 else None),
     )
     db.add(txn)
     db.flush()
