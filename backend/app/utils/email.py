@@ -13,6 +13,23 @@ last_result: dict = {"ok": None, "error": None, "at": None}
 def _record(ok: bool, error: str | None = None) -> None:
     from datetime import datetime, timezone
     last_result.update({"ok": ok, "error": error, "at": datetime.now(timezone.utc).isoformat()})
+    if not ok and error:
+        _keep_failure(error)
+
+
+def _keep_failure(error: str) -> None:
+    """Writes the reason a message failed (never the message, address or key) to the activity log so it can be read later."""
+    try:
+        from app.core.database import SessionLocal
+        from app.models.activity_log import ActivityLog
+        db = SessionLocal()
+        try:
+            db.add(ActivityLog(action="email_failed", target_type="email", detail=error[:480]))
+            db.commit()
+        finally:
+            db.close()
+    except Exception:
+        logger.warning("Could not record an email failure")
 
 
 def email_configured() -> bool:
