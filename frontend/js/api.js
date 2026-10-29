@@ -333,8 +333,6 @@ const Api = {
   },
 
   admin: {
-    emailStatus: () => apiFetch("/api/admin/email-status"),
-    emailTest: () => apiFetch("/api/admin/email-test", { method: "POST" }),
     overview: () => apiFetch("/api/admin/overview"),
     institutions: () => apiFetch("/api/admin/institutions"),
   },
