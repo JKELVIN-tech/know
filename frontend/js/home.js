@@ -10,6 +10,16 @@
   window.addEventListener("online", handleBackOnline);
   window.addEventListener("offline", refreshOfflineBanner);
 
+  let business = "";
+  async function loadBusiness() {
+    try {
+      const me = await Api.users.me();
+      business = me.institution_name && !me.institution_name.includes("(@") ? me.institution_name : me.full_name;
+      Offline.cacheSet("business_name", business);
+    } catch { business = (await Offline.cacheGet("business_name")) || session.full_name || "KNOW"; }
+  }
+  loadBusiness();
+
   async function loadLowStock() {
     const card = $("#lowStockCard");
     if (!card || session.staff_type === "teacher") return;
@@ -139,38 +149,64 @@
     });
   });
 
+  function groupsOfRecent() {
+    const sorted = [...transactions].sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date));
+    const map = new Map();
+    for (const t of sorted) {
+      const key = t.batch_id || `t${t.id}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(t);
+    }
+    return [...map.entries()].slice(0, 6);
+  }
+
   function renderRecent() {
     const list = $("#recentList");
-    const recent = [...transactions]
-      .sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date))
-      .slice(0, 6);
-
-    list.innerHTML = recent.length ? recent.map((t) => `
+    const groups = groupsOfRecent();
+    list.innerHTML = groups.length ? groups.map(([key, g]) => {
+      const t = g[0];
+      const total = g.reduce((a, x) => a + Number(x.amount), 0);
+      const title = g.length === 1
+        ? `${escapeHtml(t.category)}${t.category_type === "STOCK" && t.quantity ? ` &times; ${t.quantity}` : ""}`
+        : `${g.slice(0, 2).map((x) => escapeHtml(x.category)).join(", ")}${g.length > 2 ? ` +${g.length - 2}` : ""}`;
+      const sub = g.length === 1 ? escapeHtml(t.description || formatDate(t.transaction_date, true)) : `${g.length} items &middot; ${formatDate(t.transaction_date, true)}`;
+      return `
       <li class="txn${t._pending ? (t._pendingFailed ? ' is-failed' : ' is-pending') : ''}">
         <span class="txn-badge ${t.type === "income" ? "in" : "out"}">
           <span class="ico" data-ico="${t.type === "income" ? "in" : "out"}"></span>
         </span>
         <span class="txn-info">
-          <strong>${escapeHtml(t.category)}${t.category_type === "STOCK" && t.quantity ? ` &times; ${t.quantity}` : ""}</strong>
+          <strong>${title}</strong>
           <span class="subtle">
             ${t._pendingFailed ? `<span class="badge-pending">Sync failed</span> &middot; ` : ""}
-            ${escapeHtml(t.description || formatDate(t.transaction_date, true))} &middot; ${t.method.toUpperCase()}${t.mpesa_code ? ` &middot; ${escapeHtml(t.mpesa_code)}` : ""}
+            ${sub} &middot; ${t.method.toUpperCase()}${t.mpesa_code ? ` &middot; ${escapeHtml(t.mpesa_code)}` : ""}
           </span>
         </span>
-        ${!t._pending && t.image_path ? `<a class="ghost-btn" href="${Api.transactions.imageUrl(t)}" target="_blank" rel="noopener">Photo</a>` : ""}
-        <span class="txn-amount ${t.type === "income" ? "in" : "out"}">${t.type === "income" ? "+" : "−"}${money(t.amount)}</span>
-        ${!t._pending ? `<button type="button" class="ghost-btn edit-txn" data-id="${t.id}">Edit</button>` : ""}
-      </li>
-    `).join("") : `<li class="empty-state">No transactions recorded yet.</li>`;
+        ${g.length === 1 && !t._pending && t.image_path ? `<a class="ghost-btn" href="${Api.transactions.imageUrl(t)}" target="_blank" rel="noopener">Photo</a>` : ""}
+        <span class="txn-amount ${t.type === "income" ? "in" : "out"}">${t.type === "income" ? "+" : "\u2212"}${money(total)}</span>
+        <button type="button" class="rx-menu" data-key="${escapeHtml(key)}" aria-label="Receipt options">&#9776;</button>
+      </li>`;
+    }).join("") : `<li class="empty-state">No transactions recorded yet.</li>`;
 
     paintIcons(list);
   }
 
   $("#recentList").addEventListener("click", (e) => {
-    const btn = e.target.closest(".edit-txn");
+    const btn = e.target.closest(".rx-menu");
     if (!btn) return;
-    const t = transactions.find((x) => String(x.id) === btn.dataset.id);
-    if (t) openEditSheet(t);
+    const entry = groupsOfRecent().find(([key]) => key === btn.dataset.key);
+    if (!entry) return;
+    const g = entry[1];
+    const receipt = Receipt.fromTransactions(g, business || session.full_name || "KNOW", session.full_name || "");
+    Sheet.open("Entry options", `
+      <div class="form-actions rc-actions">
+        <button type="button" class="primary-btn" id="optView">View receipt</button>
+        <button type="button" class="ghost-btn" id="optPrint">Print receipt</button>
+        ${g.length === 1 && !g[0]._pending ? `<button type="button" class="ghost-btn" id="optEdit">Edit entry</button>` : ""}
+      </div>`);
+    $("#optView").addEventListener("click", () => Receipt.show(receipt));
+    $("#optPrint").addEventListener("click", () => Receipt.print(receipt));
+    if ($("#optEdit")) $("#optEdit").addEventListener("click", () => openEditSheet(g[0]));
   });
 
   /* ---------------- Edit a saved entry ---------------- */
@@ -247,6 +283,7 @@
     Sheet.open(title, `
       <p class="form-error" id="txnMsg"></p>
       <form id="txnForm">
+        <div class="cart-box" id="cartBox" hidden><p class="cart-title" id="cartTitle"></p><ul id="cartList"></ul></div>
         <label class="field"><span>Method</span>
           <select id="txnMethod">
             <option value="cash">Cash</option>
@@ -280,6 +317,7 @@
         </div>
 
         <label class="field"><span>Amount (KES)</span><input type="number" id="txnAmount" min="0.01" step="0.01" required /></label>
+        <button type="button" class="ghost-btn" id="addItemBtn">+ Add another item</button>
         <label class="field"><span>Description (optional)</span><input type="text" id="txnDescription" /></label>
         <label class="chip-input wide">
           <span class="ico" data-ico="image"></span> Add a photo (optional)
@@ -287,6 +325,7 @@
         </label>
         <p class="file-hint" id="txnImageName">Receipt, till slip, or similar evidence — not required.</p>
         <p class="file-hint">Date and time are recorded automatically.</p>
+        <div class="cart-total" id="cartTotal" hidden><span id="cartTotalLabel">Total</span><strong id="cartTotalValue"></strong></div>
         <div class="form-actions">
           <button type="submit" class="primary-btn" id="txnSubmit">Save ${title.toLowerCase()}</button>
         </div>
@@ -362,8 +401,95 @@
       $("#txnImageName").textContent = file ? `Selected: ${file.name}` : "Receipt, till slip, or similar evidence — not required.";
     });
 
+    // --- several items in one payment ---
+    const cart = [];
+    const batchId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : `${Date.now().toString(16)}${Math.random().toString(16).slice(2, 14)}`;
+    const touched = () => $("#txnAmount").value !== "" || (categoryType === "OTHER" && $("#txnCategory").value.trim() !== "");
+
+    function readLine() {
+      const msg = $("#txnMsg");
+      hideFormMessage(msg);
+      const amount = parseFloat($("#txnAmount").value);
+      if (categoryType === "OTHER" && !$("#txnCategory").value.trim()) { showFormMessage(msg, "Type what this item is, for example Sugar or Delivery."); return null; }
+      if (categoryType === "STOCK" && !stockItems.length) { showFormMessage(msg, "Add a stock item first, or switch to \"Other\"."); return null; }
+      if (!(amount > 0)) { showFormMessage(msg, "Enter an amount."); return null; }
+      if (categoryType === "STOCK") {
+        const item = stockItems.find((s) => String(s.id) === $("#txnStockItem").value);
+        const quantity = parseFloat($("#txnQuantity").value);
+        if (!(quantity > 0)) { showFormMessage(msg, "Enter a quantity."); return null; }
+        return { category_type: "STOCK", category: item.name, stock_item_id: item.id, quantity, amount };
+      }
+      return { category_type: "OTHER", category: $("#txnCategory").value.trim(), amount };
+    }
+
+    function renderCart() {
+      const sum = cart.reduce((a, l) => a + l.amount, 0) + (touched() ? (parseFloat($("#txnAmount").value) || 0) : 0);
+      $("#cartBox").hidden = !cart.length;
+      $("#cartTitle").textContent = `Items in this ${flow === "income" ? "sale" : "payment"} (${cart.length})`;
+      $("#cartList").innerHTML = cart.map((l, i) => `<li><span><b>${escapeHtml(l.category)}</b>${l.quantity ? ` <small>x ${l.quantity}</small>` : ""}</span><span>${money(l.amount)} <button type="button" class="cart-x" data-i="${i}" aria-label="Remove ${escapeHtml(l.category)}">&times;</button></span></li>`).join("");
+      $("#cartTotal").hidden = !cart.length;
+      $("#cartTotalLabel").textContent = `Total (${cart.length + (touched() ? 1 : 0)} items)`;
+      $("#cartTotalValue").textContent = money(sum);
+      $("#txnSubmit").textContent = cart.length ? `Save \u00b7 ${money(sum)}` : `Save ${title.toLowerCase()}`;
+    }
+    $("#cartList").addEventListener("click", (e) => {
+      const x = e.target.closest(".cart-x");
+      if (!x) return;
+      cart.splice(Number(x.dataset.i), 1);
+      renderCart();
+    });
+    $("#addItemBtn").addEventListener("click", () => {
+      const line = readLine();
+      if (!line) return;
+      cart.push(line);
+      $("#txnAmount").value = "";
+      $("#txnCategory").value = "";
+      if ($("#txnQuantity")) $("#txnQuantity").value = "1";
+      renderCart();
+    });
+    $("#txnAmount").addEventListener("input", renderCart);
+    $("#txnCategory").addEventListener("input", renderCart);
+
     $("#txnForm").addEventListener("submit", async (e) => {
       e.preventDefault();
+      const msg = $("#txnMsg");
+      if (cart.length) {
+        hideFormMessage(msg);
+        const extra = touched() ? readLine() : null;
+        if (touched() && !extra) return;
+        const lines = [...cart, ...(extra ? [extra] : [])];
+        const submit = $("#txnSubmit");
+        submit.disabled = true;
+        submit.textContent = "Saving…";
+        const common = { type: flow, method: $("#txnMethod").value, description: $("#txnDescription").value.trim() || null, mpesa_code: mpesaCode, mpesa_payer_name: mpesaPayerName };
+        const image = $("#txnImage").files[0] || null;
+        const who = [business || session.full_name || "KNOW", session.full_name || ""];
+        try {
+          const created = await Api.transactions.batch({ batch_id: batchId, ...common, lines: lines.map((l) => ({ ...l, amount: String(l.amount) })) }, image);
+          Sheet.close();
+          await loadData();
+          Receipt.saved(Receipt.fromTransactions(created, ...who));
+        } catch (err) {
+          if (err.status === 0) {
+            // No connection: each item is kept on this device with the same receipt id and groups back together after syncing
+            for (let i = 0; i < lines.length; i++) {
+              await Offline.queueTransaction({ ...common, ...lines[i], batch_id: batchId, imageBlob: i === 0 ? image : null, imageName: i === 0 ? image?.name : undefined });
+            }
+            Sheet.close();
+            await loadData();
+            Receipt.saved(Receipt.fromFields(lines, common, ...who, batchId.slice(0, 6).toUpperCase()));
+          } else {
+            showFormMessage(msg, err.message || "Could not save the items.");
+            submit.disabled = false;
+            renderCart();
+          }
+        }
+        return;
+      }
+      await submitSingle(e);
+    });
+
+    async function submitSingle(e) {
       const msg = $("#txnMsg");
       hideFormMessage(msg);
       const submitBtn = $("#txnSubmit");
@@ -395,10 +521,10 @@
       };
 
       try {
-        await Api.transactions.create(fields);
+        const created = await Api.transactions.create(fields);
         Sheet.close();
-        toast(`${title} recorded.`);
         await loadData();
+        Receipt.saved(Receipt.fromTransactions([created], business || session.full_name || "KNOW", session.full_name || ""));
       } catch (err) {
         if (err.status === 0) {
           // No connection — queue it locally instead of losing the entry;
@@ -406,14 +532,15 @@
           const { image, ...rest } = fields;
           await Offline.queueTransaction({ ...rest, imageBlob: image, imageName: image?.name });
           Sheet.close();
-          toast(`${title} saved.`);
           await loadData();
+          const line = { category: fields.category || (stockItems.find((x) => x.id === fields.stock_item_id) || {}).name || "Item", quantity: fields.quantity, amount: fields.amount };
+          Receipt.saved(Receipt.fromFields([line], fields, business || session.full_name || "KNOW", session.full_name || "", "PENDING"));
         } else {
           showFormMessage(msg, err.message || "Could not save the transaction.");
           submitBtn.disabled = false;
           submitBtn.textContent = `Save ${title.toLowerCase()}`;
         }
       }
-    });
+    }
   }
 })();

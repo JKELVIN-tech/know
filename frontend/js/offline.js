@@ -132,6 +132,7 @@ const Offline = (() => {
       quantity: row.quantity ?? null,
       mpesa_code: row.mpesa_code || null,
       mpesa_payer_name: row.mpesa_payer_name || null,
+      batch_id: row.batch_id || null,
       transaction_date: row.createdAt,
       image_path: null,
       created_at: row.createdAt,
@@ -164,6 +165,7 @@ const Offline = (() => {
       if (row.quantity !== undefined && row.quantity !== null) form.append("quantity", row.quantity);
       if (row.mpesa_code) form.append("mpesa_code", row.mpesa_code);
       if (row.mpesa_payer_name) form.append("mpesa_payer_name", row.mpesa_payer_name);
+      if (row.batch_id) form.append("batch_id", row.batch_id);
       if (row.imageBlob) form.append("image", row.imageBlob, row.imageName || "photo.jpg");
 
       try {

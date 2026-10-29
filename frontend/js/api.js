@@ -408,7 +408,7 @@ const Api = {
      * optional on any entry (usually prefilled via Api.mpesa.parse).
      * description and image are always optional. Date is set server-side.
      */
-    async create({ type, method, category_type, category, description, amount, stock_item_id, quantity, mpesa_code, mpesa_payer_name, image }) {
+    async create({ type, method, category_type, category, description, amount, stock_item_id, quantity, mpesa_code, mpesa_payer_name, batch_id, image }) {
       const form = new FormData();
       form.append("type", type);
       form.append("method", method);
@@ -420,8 +420,16 @@ const Api = {
       if (quantity !== undefined && quantity !== null) form.append("quantity", quantity);
       if (mpesa_code) form.append("mpesa_code", mpesa_code);
       if (mpesa_payer_name) form.append("mpesa_payer_name", mpesa_payer_name);
+      if (batch_id) form.append("batch_id", batch_id);
       if (image) form.append("image", image);
       return apiFetch("/api/transactions", { method: "POST", body: form, isForm: true });
+    },
+    /* Several items paid for together: every line is saved, or none. Safe to send again with the same batch_id. */
+    async batch(payload, image) {
+      const form = new FormData();
+      form.append("payload", JSON.stringify(payload));
+      if (image) form.append("image", image);
+      return apiFetch("/api/transactions/batch", { method: "POST", body: form, isForm: true });
     },
     /**
      * Multipart, any subset. transaction_date, category_type and

@@ -732,3 +732,26 @@ a.stat-card:hover { border-color: var(--brand); transform: translateY(-1px); }
 .low-list .warn { color: #b45309; }
 .low-list .neg { color: #b91c1c; }
 .edit-txn { margin-left: 8px; padding: 4px 10px; font-size: 12px; }
+
+.rx-menu { margin-left: 6px; background: none; border: 0; font-size: 20px; line-height: 1; padding: 6px 8px; border-radius: 10px; color: inherit; cursor: pointer; opacity: .75; }
+.rx-menu:hover { background: rgba(128,128,128,.18); }
+.cart-box { padding: 12px 14px; margin-bottom: 12px; border-radius: 16px; background: rgba(20,184,166,.1); }
+.cart-title { margin: 0 0 6px; font-weight: 700; font-size: 13px; }
+.cart-box ul { list-style: none; margin: 0; padding: 0; }
+.cart-box li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 5px 0; }
+.cart-x { border: 0; background: none; font-size: 20px; line-height: 1; cursor: pointer; color: inherit; opacity: .7; }
+.cart-total { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; margin: 4px 0 12px; border-radius: 16px; background: rgba(20,184,166,.16); font-weight: 700; }
+.cart-total strong { font-size: 20px; }
+.rc-paper { background: #fff; color: #10201d; border-radius: 14px; padding: 20px; margin-bottom: 14px; }
+.rc-paper h3 { margin: 0; text-align: center; font-size: 18px; }
+.rc-title { text-align: center; color: #0f766e; font-weight: 800; letter-spacing: .16em; font-size: 12px; margin: 4px 0 12px; }
+.rc-row, .rc-line, .rc-total { display: flex; justify-content: space-between; gap: 10px; }
+.rc-small { color: #5d6f6b; font-size: 12px; }
+.rc-line { padding: 5px 0; } .rc-line small { display: block; color: #5d6f6b; font-weight: 400; }
+.rc-paper hr { border: 0; border-top: 1px dashed #b8c4c1; margin: 10px 0; } .rc-solid { border-top: 1px solid #10201d !important; }
+.rc-total { font-size: 20px; font-weight: 800; } .rc-mono { font-family: monospace; }
+.rc-thanks { text-align: center; font-weight: 700; margin: 16px 0 2px; } .rc-made { text-align: center; color: #5d6f6b; font-size: 11px; margin: 0; }
+.rc-pending { color: #b45309; font-weight: 700; font-size: 12px; }
+.rc-saved { text-align: center; padding: 6px 0 14px; }
+.rc-check { width: 56px; height: 56px; margin: 0 auto 8px; border-radius: 50%; background: #16a34a; color: #fff; font-size: 30px; display: grid; place-items: center; }
+.rc-actions { flex-direction: column; gap: 8px; } .rc-actions button { width: 100%; }
